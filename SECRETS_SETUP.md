@@ -112,7 +112,6 @@ pytest proj2/tests/llm/ -v
 
 ### CI Workflow
 - **Triggers:** Push to any branch, PRs to main
-- **Excludes:** LLM tests (too slow for CI)
 - **Uploads:** Coverage to Codecov, test results to Gist
 - **Artifacts:** pytest logs, coverage.xml
 
