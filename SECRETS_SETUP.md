@@ -53,7 +53,7 @@ The workflow already has a Gist ID: `0c223cf33bf0cc9b91667676c415aafa`
 
 **Badge markdown for README:**
 ```markdown
-![Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Jawamegamind/0c223cf33bf0cc9b91667676c415aafa/raw/tests-badge.json)
+![Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Jawamegamind/0ab63df1c29ad707ee2f0c5bdbf46383/raw/tests-badge.json)
 ```
 
 ---
