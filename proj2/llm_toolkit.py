@@ -11,8 +11,13 @@ class LLM:
     LLM class for local language model interactions
     """
 
-    ## LLM parameters
-    device = "gpu" if torch.cuda.is_available() else "cpu"
+    ## LLM parameters - prioritize MPS (Apple Silicon) > CUDA > CPU
+    if torch.backends.mps.is_available():
+        device = "mps"
+    elif torch.cuda.is_available():
+        device = "cuda"
+    else:
+        device = "cpu"
 
     ## Set for testing - use "ibm-granite/granite-4.0-micro" or one of your choice during actual execution
     model = "ibm-granite/granite-4.0-h-350M"
@@ -25,11 +30,22 @@ class LLM:
             tokens (int): The max number of generated characters
         """
         self.tokenizer = AutoTokenizer.from_pretrained(self.model, cache_dir=os.path.join(os.path.dirname(__file__), '.hf_cache'))
-        # drop device_map if running on CPU
-        if self.device == "cpu":    
+        
+        # Load model with appropriate device configuration
+        if self.device == "mps":
+            # MPS (Metal Performance Shaders) for Apple Silicon
+            self.model = AutoModelForCausalLM.from_pretrained(self.model, cache_dir=os.path.join(os.path.dirname(__file__), '.hf_cache'))
+            self.model = self.model.to(self.device)
+        elif self.device == "cuda":
+            # CUDA for NVIDIA GPUs
+            self.model = AutoModelForCausalLM.from_pretrained(self.model, device_map="auto")
+        else:
+            # CPU fallback
             self.model = AutoModelForCausalLM.from_pretrained(self.model, device_map=self.device)
+        
         self.model.eval()
         self.tokens = tokens
+        print(f"LLM initialized on device: {self.device}")
 
 
     def generate(self, context: str, prompt: str) -> str:
