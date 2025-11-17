@@ -38,8 +38,7 @@ htmlcov/
 
 # Generated docs / reports
 site/
-docs/
-*.html
+proj2/site/
 *.pdf
 
 # Databases (important!)
