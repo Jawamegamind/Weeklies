@@ -9,6 +9,7 @@ from io import BytesIO
 from flask import jsonify
 from sqlite3 import IntegrityError
 from datetime import timedelta, date, datetime
+from functools import wraps
 from proj2.pdf_receipt import generate_order_receipt_pdf
 from werkzeug.security import check_password_hash, generate_password_hash
 from flask import Flask, render_template, url_for, redirect, request, session, send_file, abort
@@ -313,6 +314,103 @@ def logout():
     for k in ["Username","Fname","Lname","Email","Phone","Wallet","Preferences","Allergies","GeneratedMenu"]:
         session.pop(k, None)
     return redirect(url_for("login"))
+
+# ---------------------- Restaurant Authentication ----------------------
+
+def restaurant_required(f):
+    """
+    Decorator to protect restaurant-only routes.
+    Redirects to restaurant login if not authenticated as a restaurant.
+    Also adds cache-control headers to prevent browser caching.
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('restaurant_mode') or not session.get('rtr_id'):
+            return redirect(url_for('restaurant_login'))
+        
+        # Call the route function
+        response = f(*args, **kwargs)
+        
+        # If response is a string, convert to Response object
+        if isinstance(response, str):
+            from flask import make_response
+            response = make_response(response)
+        
+        # Add cache-control headers to prevent browser caching
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, private'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        
+        return response
+    return decorated_function
+
+@app.route('/restaurant/login', methods=['GET', 'POST'])
+def restaurant_login():
+    """
+    Restaurant owner login page and authentication handler.
+    Args:
+        None
+    Returns:
+        Response: Renders restaurant login page or redirects to dashboard on success.
+    """
+    if request.method == 'POST':
+        email = (request.form.get('email') or '').strip().lower()
+        password = request.form.get('password') or ''
+        
+        conn = create_connection(db_file)
+        try:
+            restaurant = fetch_one(conn, 
+                'SELECT rtr_id, name, email, password_HS FROM Restaurant WHERE email = ?', 
+                (email,))
+        finally:
+            close_connection(conn)
+        
+        if restaurant and check_password_hash(restaurant[3], password):
+            # Set restaurant session
+            session['restaurant_mode'] = True
+            session['rtr_id'] = restaurant[0]
+            session['RestaurantName'] = restaurant[1]
+            session['RestaurantEmail'] = email
+            session.permanent = True
+            app.permanent_session_lifetime = timedelta(hours=8)  # Longer for restaurant staff
+            
+            return redirect(url_for('restaurant_dashboard'))
+        
+        return render_template('restaurant_login.html', error='Invalid credentials')
+    
+    return render_template('restaurant_login.html')
+
+@app.route('/restaurant/logout')
+def restaurant_logout():
+    """
+    Clear restaurant session and redirect to restaurant login.
+    Args:
+        None
+    Returns:
+        Response: Redirect to restaurant login page.
+    """
+    session.pop('restaurant_mode', None)
+    session.pop('rtr_id', None)
+    session.pop('RestaurantName', None)
+    session.pop('RestaurantEmail', None)
+    return redirect(url_for('restaurant_login'))
+
+@app.route('/restaurant/dashboard')
+@restaurant_required
+def restaurant_dashboard():
+    """
+    Main dashboard showing all orders for the restaurant, grouped by status.
+    Args:
+        None
+    Returns:
+        Response: Renders restaurant dashboard with orders.
+    """
+    restaurant_name = session.get('RestaurantName', 'Restaurant')
+    restaurant_email = session.get('RestaurantEmail', '')
+    
+    return render_template('restaurant_dashboard.html',
+                         restaurant_name=restaurant_name,
+                         restaurant_email=restaurant_email)
 
 # Registration route
 @app.route('/register', methods=['GET', 'POST'])
