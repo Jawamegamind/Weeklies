@@ -60,6 +60,18 @@
                     <a class="function" href="#logout">logout</a>
             </li>
             <li>
+                    <a class="function" href="#restaurant_required">restaurant_required</a>
+            </li>
+            <li>
+                    <a class="function" href="#restaurant_login">restaurant_login</a>
+            </li>
+            <li>
+                    <a class="function" href="#restaurant_logout">restaurant_logout</a>
+            </li>
+            <li>
+                    <a class="function" href="#restaurant_dashboard">restaurant_dashboard</a>
+            </li>
+            <li>
                     <a class="function" href="#register">register</a>
             </li>
             <li>
@@ -272,6 +284,84 @@ Args:
     None
 Returns:
     Response: Redirect to the login route.</p>
+</div>
+
+
+                </section>
+                <section id="restaurant_required">
+                    <div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">restaurant_required</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">f</span></span><span class="return-annotation">):</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#restaurant_required"></a>
+    
+            <div class="docstring"><p>Decorator to protect restaurant-only routes.
+Redirects to restaurant login if not authenticated as a restaurant.
+Also adds cache-control headers to prevent browser caching.</p>
+</div>
+
+
+                </section>
+                <section id="restaurant_login">
+                    <div class="attr function">
+                    <div class="decorator">@app.route(&#39;/restaurant/login&#39;, methods=[&#39;GET&#39;, &#39;POST&#39;])</div>
+
+        <span class="def">def</span>
+        <span class="name">restaurant_login</span><span class="signature pdoc-code condensed">(<span class="return-annotation">):</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#restaurant_login"></a>
+    
+            <div class="docstring"><p>Restaurant owner login page and authentication handler.
+Args:
+    None
+Returns:
+    Response: Renders restaurant login page or redirects to dashboard on success.</p>
+</div>
+
+
+                </section>
+                <section id="restaurant_logout">
+                    <div class="attr function">
+                    <div class="decorator">@app.route(&#39;/restaurant/logout&#39;)</div>
+
+        <span class="def">def</span>
+        <span class="name">restaurant_logout</span><span class="signature pdoc-code condensed">(<span class="return-annotation">):</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#restaurant_logout"></a>
+    
+            <div class="docstring"><p>Clear restaurant session and redirect to restaurant login.
+Args:
+    None
+Returns:
+    Response: Redirect to restaurant login page.</p>
+</div>
+
+
+                </section>
+                <section id="restaurant_dashboard">
+                    <div class="attr function">
+                    <div class="decorator">@app.route(&#39;/restaurant/dashboard&#39;)</div>
+        <div class="decorator">@restaurant_required</div>
+
+        <span class="def">def</span>
+        <span class="name">restaurant_dashboard</span><span class="signature pdoc-code condensed">(<span class="return-annotation">):</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#restaurant_dashboard"></a>
+    
+            <div class="docstring"><p>Main dashboard showing all orders for the restaurant, grouped by status.
+Args:
+    None
+Returns:
+    Response: Renders restaurant dashboard with orders.</p>
 </div>
 
 

@@ -1,0 +1,581 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Llm Menu Generation</title>
+<link rel="stylesheet" href="../assets/custom.css">
+</head><body class="pdoc"><main class="pdoc">
+<article><h1>LLM-Powered Menu Generation Pipeline</h1>
+<h2>Overview</h2>
+<p>The menu generation system uses a <strong>local Large Language Model (LLM)</strong> to create personalized meal plans based on user preferences, dietary restrictions, restaurant hours, and item availability. The pipeline intelligently filters menu items and uses AI to recommend suitable meals for breakfast, lunch, and dinner.</p>
+<p><strong>Current Status</strong>: ⚠️ <strong>Backend Complete, No UI</strong> — The entire pipeline is implemented and tested but has <strong>no user-facing interface</strong> to trigger it.</p>
+<hr />
+<h2>Architecture</h2>
+<pre><code>┌─────────────────────────────────────────────────────────────────┐
+│                     Menu Generation Flow                          │
+└─────────────────────────────────────────────────────────────────┘
+
+1. User Profile
+   ├─ Preferences (e.g., &quot;high protein, low carb&quot;)
+   ├─ Allergens (e.g., &quot;Peanuts, Shellfish&quot;)
+   └─ Existing Menu String (serialized)
+          ↓
+2. MenuGenerator.update_menu()
+   ├─ Input: date, meal_numbers [1,2,3], number_of_days
+   ├─ For each day &amp; meal:
+   │    ├─ Filter by restaurant hours (open at meal time)
+   │    ├─ Filter by allergens (exclude items)
+   │    ├─ Filter by stock (instock == 1)
+   │    ├─ Random sample (ITEM_CHOICES items)
+   │    └─ Build CSV context for LLM
+   │         ↓
+3. LLM Generation
+   ├─ System: &quot;You are a health and nutrition expert...&quot;
+   ├─ Prompt: User preferences + meal type + CSV of items
+   ├─ Model: IBM Granite 350M (HuggingFace)
+   ├─ Device: MPS (Apple Silicon) / CUDA / CPU
+   └─ Output: Item ID in specific format
+          ↓
+4. Output Validation
+   ├─ Parse LLM output with regex
+   ├─ Verify item_id exists in filtered list
+   ├─ Retry up to MAX_LLM_TRIES if invalid
+   └─ Return item_id or raise error
+          ↓
+5. Menu String Update
+   └─ Append: [YYYY-MM-DD,item_id,meal_number]
+          ↓
+6. Persist to Database
+   └─ Update User.generated_menu column
+</code></pre>
+<hr />
+<h2>Core Components</h2>
+<h3>1. <code>llm_toolkit.py</code> — LLM Wrapper</h3>
+<p>Provides a clean interface to the HuggingFace Transformers model.</p>
+<h4>Class: <code>LLM</code></h4>
+<p><strong>Initialization:</strong>
+- Detects available hardware: <strong>MPS</strong> (Apple Silicon) &gt; <strong>CUDA</strong> (NVIDIA GPU) &gt; <strong>CPU</strong>
+- Downloads model from HuggingFace: <code>ibm-granite/granite-4.0-h-350M</code>
+- Caches model locally in <code>.hf_cache/</code> directory
+- Sets model to evaluation mode</p>
+<p><strong>Parameters:</strong>
+- <code>tokens</code> (int, default=500): Max number of tokens to generate</p>
+<p><strong>Key Method: <code>generate(context, prompt)</code></strong></p>
+<pre><code class="language-python">def generate(self, context: str, prompt: str) -&gt; str
+</code></pre>
+<ul>
+<li><strong>context</strong>: System message (role: "You are a nutrition expert...")</li>
+<li><strong>prompt</strong>: User request with preferences and menu items</li>
+<li><strong>Returns</strong>: Raw LLM output string</li>
+</ul>
+<p><strong>Output Format:</strong></p>
+<pre><code>&lt;|start_of_role|&gt;assistant&lt;|end_of_role|&gt;42&lt;|end_of_text|&gt;
+</code></pre>
+<p>Where <code>42</code> is the selected item_id.</p>
+<p><strong>Performance:</strong>
+- <strong>MPS (Apple Silicon)</strong>: ~2-5 seconds per inference
+- <strong>CPU</strong>: ~30-60 seconds per inference
+- Prints timing: <code>"Menu Item selected in X.XXXX seconds"</code></p>
+<hr />
+<h3>2. <code>menu_generation.py</code> — Business Logic</h3>
+<p>Contains filtering, context generation, and orchestration.</p>
+<h4>Global Configuration</h4>
+<pre><code class="language-python">MAX_LLM_TRIES = 3               # Retry attempts if LLM fails
+ITEM_CHOICES = 10               # Initial sample size for LLM
+LLM_ATTRIBUTE_ERROR = -1        # Error code for parse failure
+
+# Meal times (24-hour HHMM format)
+BREAKFAST_TIME = 1000           # 10:00 AM
+LUNCH_TIME = 1400               # 2:00 PM
+DINNER_TIME = 2000              # 8:00 PM
+
+# Days of week (match database format)
+DAYS_OF_WEEK = [&quot;Mon&quot;, &quot;Tue&quot;, &quot;Wed&quot;, &quot;Thu&quot;, &quot;Fri&quot;, &quot;Sat&quot;, &quot;Sun&quot;]
+</code></pre>
+<h4>LLM Prompts</h4>
+<p><strong>System Template:</strong></p>
+<pre><code>You are a health and nutrition expert planning meals for a customer 
+based on their preferences. Use only the menu items provided under 
+CSV CONTEXT.
+</code></pre>
+<p><strong>User Prompt Template:</strong></p>
+<pre><code>Choose a meal for a customer based on their preferences: {preferences}
+Make sure that the item makes sense for {meal}.
+Provide only the itm_id as output
+
+CSV CONTEXT:
+{context}
+</code></pre>
+<p><strong>Context Example:</strong></p>
+<pre><code class="language-csv">item_id,name,description,price,calories
+42,Grilled Chicken Salad,Fresh greens with grilled chicken,1200,350
+58,Quinoa Bowl,Protein-packed quinoa with vegetables,1400,420
+...
+</code></pre>
+<h4>Helper Functions</h4>
+<h5><code>get_meal_and_order_time(meal_number: int) -&gt; Tuple[str, int]</code></h5>
+<p>Maps meal numbers to names and times:
+- <code>1</code> → <code>("breakfast", 1000)</code>
+- <code>2</code> → <code>("lunch", 1400)</code>
+- <code>3</code> → <code>("dinner", 2000)</code></p>
+<h5><code>get_weekday_and_increment(date: str) -&gt; Tuple[str, str]</code></h5>
+<p>Converts date to weekday and gets next date:
+- Input: <code>"2025-10-14"</code>
+- Output: <code>("2025-10-15", "Mon")</code></p>
+<h5><code>format_llm_output(output: str) -&gt; int</code></h5>
+<p>Extracts item_id from LLM output using regex:</p>
+<pre><code class="language-python">LLM_OUTPUT_MATCH = r&quot;&lt;\|start_of_role\|&gt;assistant&lt;\|end_of_role\|&gt;(\d+)&lt;\|end_of_text\|&gt;&quot;
+</code></pre>
+<p>Returns <code>-1</code> if parsing fails.</p>
+<h5><code>filter_allergens(menu_items: DataFrame, allergens: str) -&gt; DataFrame</code></h5>
+<p>Removes items containing specified allergens:
+- Splits <code>allergens</code> by comma
+- Checks each item's <code>allergens</code> column
+- Drops rows with matches</p>
+<h5><code>filter_closed_restaurants(restaurant: DataFrame, weekday: str, time: int) -&gt; DataFrame</code></h5>
+<p>Removes restaurants closed at specified time:
+- Parses <code>hours</code> JSON: <code>{"Mon": [1700, 2100], ...}</code>
+- Checks if <code>time</code> falls within any open interval
+- Drops closed restaurants</p>
+<h5><code>limit_scope(items: DataFrame, num_choices: int) -&gt; List[int]</code></h5>
+<p>Randomly samples items to limit context size:
+- Returns up to <code>num_choices</code> random indices
+- Prevents overwhelming the LLM with too many options</p>
+<hr />
+<h3>3. Class: <code>MenuGenerator</code></h3>
+<p>The main orchestrator that ties everything together.</p>
+<h4>Initialization</h4>
+<pre><code class="language-python">def __init__(self, tokens: int = 500)
+</code></pre>
+<p><strong>Actions:</strong>
+1. Connects to database (<code>CSC510_DB.db</code>)
+2. Loads menu items: <code>SELECT * FROM MenuItem WHERE instock == 1</code>
+3. Loads restaurants: <code>SELECT rtr_id, hours FROM Restaurant WHERE status=="Open"</code>
+4. Initializes LLM: <code>self.generator = llm_toolkit.LLM(tokens=tokens)</code>
+5. Closes database connection</p>
+<p><strong>Data Loaded:</strong>
+- <code>self.menu_items</code>: Pandas DataFrame with all in-stock items
+- <code>self.restaurants</code>: Pandas DataFrame with open restaurants and hours
+- <code>self.generator</code>: LLM instance ready for inference</p>
+<hr />
+<h4>Private Method: <code>__get_context()</code></h4>
+<pre><code class="language-python">def __get_context(self, allergens: str, weekday: str, order_time: int, 
+                  num_choices: int) -&gt; Tuple[str, List[int]]
+</code></pre>
+<p><strong>Purpose:</strong> Build filtered, sampled menu context for the LLM.</p>
+<p><strong>Process:</strong>
+1. <strong>Merge</strong>: Combine <code>menu_items</code> + <code>restaurants</code> on <code>rtr_id</code>
+2. <strong>Filter Closed</strong>: Remove restaurants closed at <code>order_time</code> on <code>weekday</code>
+3. <strong>Filter Allergens</strong>: Remove items containing user's allergens
+4. <strong>Random Sample</strong>: Select <code>num_choices</code> random items
+5. <strong>Build CSV</strong>: Create CSV string with columns: <code>item_id,name,description,price,calories</code>
+6. <strong>Return</strong>: <code>(csv_string, list_of_item_ids)</code></p>
+<p><strong>Performance:</strong> Prints timing: <code>"Context block generated in X.XXXX seconds"</code></p>
+<p><strong>Example Output:</strong></p>
+<pre><code class="language-python">context = &quot;item_id,name,description,price,calories\n42,Salad,...\n58,Bowl,...\n&quot;
+item_ids = [42, 58, 73, 91, ...]
+</code></pre>
+<hr />
+<h4>Private Method: <code>__pick_menu_item()</code></h4>
+<pre><code class="language-python">def __pick_menu_item(self, preferences: str, allergens: str, 
+                     weekday: str, meal_number: int) -&gt; int
+</code></pre>
+<p><strong>Purpose:</strong> Use LLM to select a single menu item for a specific meal.</p>
+<p><strong>Algorithm:</strong>
+1. Get meal name and time: <code>get_meal_and_order_time(meal_number)</code>
+2. Set initial sample size: <code>num_choices = ITEM_CHOICES</code> (10)
+3. <strong>Retry Loop</strong> (up to <code>MAX_LLM_TRIES</code> = 3):
+   - Generate context: <code>__get_context(allergens, weekday, order_time, num_choices)</code>
+   - Build prompt by replacing <code>{preferences}</code>, <code>{context}</code>, <code>{meal}</code>
+   - Call LLM: <code>llm_output = self.generator.generate(system, prompt)</code>
+   - Parse output: <code>output = format_llm_output(llm_output)</code>
+   - <strong>Validate</strong>: If <code>output &gt; 0</code> and <code>output in item_ids</code>, return it
+   - <strong>Retry</strong>: Increase sample size: <code>num_choices += ITEM_CHOICES</code>
+4. If all retries fail, raise <code>RuntimeError</code> with LLM output for debugging</p>
+<p><strong>Error Handling:</strong>
+- Invalid output (not a number): Retry with more options
+- Item not in filtered list: Retry with more options
+- All retries exhausted: Raise exception with details</p>
+<p><strong>Return:</strong> Valid <code>item_id</code> (int)</p>
+<hr />
+<h4>Public Method: <code>update_menu()</code></h4>
+<pre><code class="language-python">def update_menu(self, menu: str, preferences: str, allergens: str, 
+                date: str, meal_numbers: List[int], 
+                number_of_days: int = 1) -&gt; str
+</code></pre>
+<p><strong>Purpose:</strong> Generate meal plans for multiple days and meals, updating the menu string.</p>
+<p><strong>Parameters:</strong>
+- <code>menu</code> (str): Existing menu string or <code>None</code> (format: <code>[YYYY-MM-DD,itm_id,meal]</code>)
+- <code>preferences</code> (str): User preferences (e.g., <code>"high protein, low carb"</code>)
+- <code>allergens</code> (str): Allergens to avoid (e.g., <code>"Peanuts, Shellfish"</code>)
+- <code>date</code> (str): Start date in <code>YYYY-MM-DD</code> format
+- <code>meal_numbers</code> (List[int]): Which meals to generate (e.g., <code>[1,2,3]</code> for all three)
+- <code>number_of_days</code> (int): How many consecutive days to generate</p>
+<p><strong>Algorithm:</strong>
+1. Get next date and current weekday
+2. <strong>Day Loop</strong> (repeat <code>number_of_days</code> times):
+   - <strong>Meal Loop</strong> (for each meal in <code>meal_numbers</code>):
+     - Check if meal already exists for this date using regex
+     - If missing:
+       - Call <code>__pick_menu_item()</code> to get <code>itm_id</code>
+       - Append to menu: <code>[{date},{itm_id},{meal_number}]</code>
+   - Increment to next day
+3. Return updated menu string</p>
+<p><strong>Idempotency:</strong> If a meal already exists for a date, it's <strong>not regenerated</strong> (prevents overwriting).</p>
+<p><strong>Example Usage:</strong></p>
+<pre><code class="language-python">generator = MenuGenerator()
+
+# Generate lunch for Oct 14
+menu = generator.update_menu(
+    menu=None, 
+    preferences=&quot;high protein, low carb&quot;,
+    allergens=&quot;Peanuts, Shellfish&quot;,
+    date=&quot;2025-10-14&quot;,
+    meal_numbers=[2]
+)
+# Result: &quot;[2025-10-14,42,2]&quot;
+
+# Add dinner for same day (preserves lunch)
+menu = generator.update_menu(
+    menu=menu,
+    preferences=&quot;high protein, low carb&quot;,
+    allergens=&quot;Peanuts, Shellfish&quot;,
+    date=&quot;2025-10-14&quot;,
+    meal_numbers=[3]
+)
+# Result: &quot;[2025-10-14,42,2],[2025-10-14,58,3]&quot;
+
+# Generate full week (7 days, all 3 meals)
+menu = generator.update_menu(
+    menu=None,
+    preferences=&quot;vegetarian, spicy&quot;,
+    allergens=&quot;Dairy&quot;,
+    date=&quot;2025-11-16&quot;,
+    meal_numbers=[1,2,3],
+    number_of_days=7
+)
+# Result: 21 menu entries (7 days × 3 meals)
+</code></pre>
+<p><strong>Return:</strong> Updated menu string with new entries appended.</p>
+<hr />
+<h2>Menu String Format</h2>
+<h3>Structure</h3>
+<pre><code>[YYYY-MM-DD,itm_id,meal_number],[YYYY-MM-DD,itm_id,meal_number],...
+</code></pre>
+<h3>Example</h3>
+<pre><code>[2025-10-14,42,2],[2025-10-14,58,3],[2025-10-15,73,1],[2025-10-15,91,2],[2025-10-15,104,3]
+</code></pre>
+<h3>Parsing</h3>
+<p>The Flask app uses <code>parse_generated_menu()</code> to convert this into a dictionary:</p>
+<pre><code class="language-python">{
+    &quot;2025-10-14&quot;: [
+        {&quot;itm_id&quot;: 42, &quot;meal&quot;: 2},  # Lunch
+        {&quot;itm_id&quot;: 58, &quot;meal&quot;: 3}   # Dinner
+    ],
+    &quot;2025-10-15&quot;: [
+        {&quot;itm_id&quot;: 73, &quot;meal&quot;: 1},  # Breakfast
+        {&quot;itm_id&quot;: 91, &quot;meal&quot;: 2},  # Lunch
+        {&quot;itm_id&quot;: 104, &quot;meal&quot;: 3}  # Dinner
+    ]
+}
+</code></pre>
+<p>This dictionary is used to render the calendar in <code>index.html</code>.</p>
+<hr />
+<h2>Data Flow Example</h2>
+<h3>Scenario: Generate lunch recommendation for a high-protein user</h3>
+<pre><code class="language-python"># 1. User data
+preferences = &quot;high protein, low carb&quot;
+allergens = &quot;Peanuts, Shellfish&quot;
+date = &quot;2025-10-14&quot;  # Monday
+meal_number = 2  # Lunch
+
+# 2. Initialize generator (loads DB data + LLM)
+generator = MenuGenerator(tokens=500)
+
+# 3. Call update_menu
+menu = generator.update_menu(
+    menu=None,
+    preferences=preferences,
+    allergens=allergens,
+    date=date,
+    meal_numbers=[2]
+)
+
+# Internal flow:
+# ├─ get_weekday_and_increment(&quot;2025-10-14&quot;)
+# │    └─ Returns: (&quot;2025-10-15&quot;, &quot;Mon&quot;)
+# ├─ __pick_menu_item(preferences, allergens, &quot;Mon&quot;, 2)
+# │    ├─ get_meal_and_order_time(2) → (&quot;lunch&quot;, 1400)
+# │    ├─ __get_context(allergens, &quot;Mon&quot;, 1400, 10)
+# │    │    ├─ Merge menu_items + restaurants
+# │    │    ├─ Filter: Restaurants open at 1400 on Monday
+# │    │    ├─ Filter: Remove items with Peanuts or Shellfish
+# │    │    ├─ Sample: 10 random items
+# │    │    └─ Build CSV: &quot;item_id,name,description,price,calories\n42,...&quot;
+# │    ├─ Build prompt:
+# │    │    System: &quot;You are a health and nutrition expert...&quot;
+# │    │    User: &quot;Choose a meal for... high protein, low carb... lunch&quot;
+# │    ├─ Call LLM: generator.generate(system, prompt)
+# │    │    ├─ Tokenize input
+# │    │    ├─ Run inference on MPS/CUDA/CPU
+# │    │    └─ Decode output: &quot;&lt;|start_of_role|&gt;assistant&lt;|end_of_role|&gt;42&lt;|end_of_text|&gt;&quot;
+# │    ├─ Parse: format_llm_output(llm_output) → 42
+# │    └─ Validate: 42 in [42, 58, 73, ...] ✓
+# └─ Append: &quot;[2025-10-14,42,2]&quot;
+
+# 4. Result
+menu = &quot;[2025-10-14,42,2]&quot;
+
+# 5. Save to database (NOT IMPLEMENTED in UI)
+# UPDATE User SET generated_menu = &quot;[2025-10-14,42,2]&quot; WHERE usr_id = 123
+</code></pre>
+<hr />
+<h2>Testing</h2>
+<h3>Test Suite: <code>tests/llm/test_generator.py</code></h3>
+<p><strong>Key Tests:</strong>
+1. <strong>No Regression</strong>: Ensures previously generated meals aren't overwritten
+2. <strong>Valid Items</strong>: Confirms all item_ids exist in the database
+3. <strong>Correct Meals</strong>: Verifies meal numbers (1, 2, 3) are correct
+4. <strong>Multiple Meals</strong>: Tests generating multiple meals in one call
+5. <strong>Multiple Days</strong>: Tests multi-day generation</p>
+<p><strong>Example Test:</strong></p>
+<pre><code class="language-python"># Generate 5 meals incrementally
+menu1 = generator.update_menu(None, &quot;high protein, low carb&quot;, &quot;Peanuts&quot;, &quot;2025-10-14&quot;, [2])
+menu2 = generator.update_menu(menu1, &quot;high protein, low carb&quot;, &quot;Peanuts&quot;, &quot;2025-10-14&quot;, [3])
+menu3 = generator.update_menu(menu2, &quot;high protein, low carb&quot;, &quot;Peanuts&quot;, &quot;2025-10-15&quot;, [1])
+menu4 = generator.update_menu(menu3, &quot;high protein, low carb&quot;, &quot;Peanuts&quot;, &quot;2025-10-15&quot;, [2])
+menu5 = generator.update_menu(menu4, &quot;high protein, low carb&quot;, &quot;Peanuts&quot;, &quot;2025-10-15&quot;, [3])
+
+# Verify no regression (menu2 preserves menu1's entries)
+assert parse_generated_menu(menu1)[&quot;2025-10-14&quot;][0] == \
+       parse_generated_menu(menu5)[&quot;2025-10-14&quot;][0]
+</code></pre>
+<p><strong>Test Execution:</strong></p>
+<pre><code class="language-bash">pytest proj2/tests/llm/test_generator.py -v
+</code></pre>
+<hr />
+<h2>Performance Characteristics</h2>
+<h3>Timing Breakdown (Apple Silicon M-series, MPS)</h3>
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Time (seconds)</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MenuGenerator init</td>
+<td>2-5s</td>
+<td>One-time LLM model load from cache</td>
+</tr>
+<tr>
+<td>Context generation</td>
+<td>0.01-0.05s</td>
+<td>Database query + filtering</td>
+</tr>
+<tr>
+<td>LLM inference</td>
+<td>2-5s per item</td>
+<td>Depends on model size and hardware</td>
+</tr>
+<tr>
+<td><strong>Total per meal</strong></td>
+<td><strong>~2-5s</strong></td>
+<td>Context + LLM inference</td>
+</tr>
+<tr>
+<td><strong>Week plan (21 meals)</strong></td>
+<td><strong>~60-120s</strong></td>
+<td>21 LLM calls (with retries)</td>
+</tr>
+</tbody>
+</table>
+<h3>CPU Performance</h3>
+<ul>
+<li><strong>LLM inference</strong>: ~30-60s per item</li>
+<li><strong>Week plan</strong>: ~15-30 minutes (not practical for production)</li>
+</ul>
+<h3>Optimization Strategies</h3>
+<ol>
+<li><strong>Batch Generation</strong>: Generate multiple days at once (already supported)</li>
+<li><strong>Caching</strong>: Cache LLM results for common preference+allergen combos</li>
+<li><strong>GPU Acceleration</strong>: Use CUDA (NVIDIA) or MPS (Apple) devices</li>
+<li><strong>Smaller Model</strong>: Use <code>granite-4.0-micro</code> instead of <code>350M</code> (faster, less accurate)</li>
+<li><strong>Async Processing</strong>: Generate menus in background task, notify user when ready</li>
+</ol>
+<hr />
+<h2>Integration Points (Not Yet Implemented)</h2>
+<h3>1. User Interface Trigger</h3>
+<p><strong>Proposed Route:</strong></p>
+<pre><code class="language-python">@app.route('/generate_menu', methods=['POST'])
+def generate_menu():
+    if session.get(&quot;Username&quot;) is None:
+        return redirect(url_for(&quot;login&quot;))
+
+    usr_id = session.get(&quot;usr_id&quot;)
+    preferences = request.form.get(&quot;preferences&quot;) or session.get(&quot;Preferences&quot;) or &quot;&quot;
+    allergens = request.form.get(&quot;allergens&quot;) or session.get(&quot;Allergies&quot;) or &quot;&quot;
+    start_date = request.form.get(&quot;start_date&quot;) or date.today().isoformat()
+    num_days = int(request.form.get(&quot;num_days&quot;) or 7)
+    meal_numbers = [int(m) for m in request.form.getlist(&quot;meals[]&quot;)] or [1,2,3]
+
+    # Load existing menu
+    conn = create_connection(db_file)
+    try:
+        user = fetch_one(conn, 'SELECT generated_menu FROM &quot;User&quot; WHERE usr_id = ?', (usr_id,))
+        existing_menu = user[0] if user else None
+    finally:
+        close_connection(conn)
+
+    # Generate new menu
+    generator = MenuGenerator(tokens=500)
+    updated_menu = generator.update_menu(
+        menu=existing_menu,
+        preferences=preferences,
+        allergens=allergens,
+        date=start_date,
+        meal_numbers=meal_numbers,
+        number_of_days=num_days
+    )
+
+    # Save to database
+    conn = create_connection(db_file)
+    try:
+        execute_query(conn, 'UPDATE &quot;User&quot; SET generated_menu = ? WHERE usr_id = ?', 
+                     (updated_menu, usr_id))
+    finally:
+        close_connection(conn)
+
+    return redirect(url_for(&quot;index&quot;))
+</code></pre>
+<h3>2. Frontend Form</h3>
+<p><strong>Location:</strong> Add to <code>profile.html</code> or <code>index.html</code></p>
+<pre><code class="language-html">&lt;form action=&quot;/generate_menu&quot; method=&quot;POST&quot;&gt;
+  &lt;h3&gt;Generate AI Meal Plan&lt;/h3&gt;
+
+  &lt;label&gt;Start Date:&lt;/label&gt;
+  &lt;input type=&quot;date&quot; name=&quot;start_date&quot; value=&quot;{{ today }}&quot; required&gt;
+
+  &lt;label&gt;Number of Days:&lt;/label&gt;
+  &lt;select name=&quot;num_days&quot;&gt;
+    &lt;option value=&quot;1&quot;&gt;1 Day&lt;/option&gt;
+    &lt;option value=&quot;3&quot;&gt;3 Days&lt;/option&gt;
+    &lt;option value=&quot;7&quot; selected&gt;1 Week&lt;/option&gt;
+    &lt;option value=&quot;14&quot;&gt;2 Weeks&lt;/option&gt;
+  &lt;/select&gt;
+
+  &lt;label&gt;Meals:&lt;/label&gt;
+  &lt;input type=&quot;checkbox&quot; name=&quot;meals[]&quot; value=&quot;1&quot; checked&gt; Breakfast
+  &lt;input type=&quot;checkbox&quot; name=&quot;meals[]&quot; value=&quot;2&quot; checked&gt; Lunch
+  &lt;input type=&quot;checkbox&quot; name=&quot;meals[]&quot; value=&quot;3&quot; checked&gt; Dinner
+
+  &lt;label&gt;Preferences (optional):&lt;/label&gt;
+  &lt;input type=&quot;text&quot; name=&quot;preferences&quot; value=&quot;{{ session.Preferences }}&quot; 
+         placeholder=&quot;e.g., high protein, low carb, vegetarian&quot;&gt;
+
+  &lt;label&gt;Allergens (optional):&lt;/label&gt;
+  &lt;input type=&quot;text&quot; name=&quot;allergens&quot; value=&quot;{{ session.Allergies }}&quot; 
+         placeholder=&quot;e.g., Peanuts, Shellfish, Dairy&quot;&gt;
+
+  &lt;button type=&quot;submit&quot;&gt;Generate Meal Plan&lt;/button&gt;
+&lt;/form&gt;
+</code></pre>
+<h3>3. Loading State</h3>
+<p>Since generation can take 1-2 minutes, implement:
+- <strong>JavaScript Loading Spinner</strong>: Show while processing
+- <strong>Background Task</strong>: Use Celery or similar to queue generation
+- <strong>Notification</strong>: Email/push when menu is ready</p>
+<hr />
+<h2>Limitations &amp; Considerations</h2>
+<h3>Current Limitations</h3>
+<ol>
+<li><strong>No UI Trigger</strong>: Entire pipeline exists only in tests</li>
+<li><strong>Synchronous</strong>: Blocks for 1-2 minutes during generation</li>
+<li><strong>No Caching</strong>: Regenerates even for similar preferences</li>
+<li><strong>Fixed Sample Size</strong>: Always starts with 10 items (may be too few/many)</li>
+<li><strong>No User Feedback</strong>: LLM choice is opaque (no explanation)</li>
+<li><strong>Limited Diversity</strong>: May repeatedly suggest same items</li>
+<li><strong>No Cost Tracking</strong>: Free local LLM, but API calls would cost money</li>
+</ol>
+<h3>Security Considerations</h3>
+<ol>
+<li><strong>Regex Validation</strong>: <code>format_llm_output()</code> checks for injection attacks</li>
+<li><strong>Database Validation</strong>: Only uses item_ids from filtered list</li>
+<li><strong>User Input Sanitization</strong>: Preferences/allergens should be sanitized before LLM prompt</li>
+<li><strong>Rate Limiting</strong>: Should limit generation requests per user (e.g., once per day)</li>
+</ol>
+<h3>Edge Cases</h3>
+<ol>
+<li><strong>No Available Items</strong>: If filters remove all items, LLM will fail after 3 retries</li>
+<li><strong>Restaurant Hours</strong>: If no restaurants open at meal time, context will be empty</li>
+<li><strong>LLM Hallucination</strong>: May output invalid item_ids (handled by validation)</li>
+<li><strong>Meal Already Exists</strong>: update_menu() preserves existing meals (idempotent)</li>
+</ol>
+<hr />
+<h2>Future Enhancements</h2>
+<h3>Short-term (Ready to Implement)</h3>
+<ol>
+<li><strong>Add UI Route</strong>: <code>/generate_menu</code> endpoint (1-2 hours)</li>
+<li><strong>Add Form</strong>: Button on profile/index page (1 hour)</li>
+<li><strong>Loading State</strong>: JS spinner + AJAX (2 hours)</li>
+</ol>
+<h3>Medium-term (Requires Architecture Changes)</h3>
+<ol>
+<li><strong>Background Processing</strong>: Celery task queue (1-2 days)</li>
+<li><strong>Progress Updates</strong>: WebSocket for real-time status (1 day)</li>
+<li><strong>Caching</strong>: Redis cache for common preference combos (1 day)</li>
+<li><strong>Batch Optimization</strong>: Generate multiple meals in one LLM call (2 days)</li>
+</ol>
+<h3>Long-term (Significant Features)</h3>
+<ol>
+<li><strong>Explanation Generation</strong>: Ask LLM to explain why it chose each item</li>
+<li><strong>Feedback Loop</strong>: Let users rate suggestions, retrain model</li>
+<li><strong>Nutritional Tracking</strong>: Ensure weekly plan meets macro targets</li>
+<li><strong>Cost Optimization</strong>: Suggest cheaper options while meeting preferences</li>
+<li><strong>Variety Enforcement</strong>: Avoid repeating restaurants/cuisines too frequently</li>
+<li><strong>Social Features</strong>: Share meal plans, collaborative planning</li>
+</ol>
+<hr />
+<h2>Troubleshooting</h2>
+<h3>Issue: LLM times out or runs too slow</h3>
+<p><strong>Solution:</strong>
+- Check device: <code>print(LLM.device)</code> — should be <code>"mps"</code> or <code>"cuda"</code>, not <code>"cpu"</code>
+- Reduce <code>tokens</code> parameter: <code>MenuGenerator(tokens=200)</code>
+- Use smaller model: Change <code>LLM.model = "ibm-granite/granite-4.0-micro"</code></p>
+<h3>Issue: "LLM has failed 3 times to generate a meal"</h3>
+<p><strong>Causes:</strong>
+1. Filters too restrictive (no items match preferences + allergens + hours)
+2. LLM output format changed
+3. Network issue downloading model</p>
+<p><strong>Solutions:</strong>
+- Check database: Are there in-stock items from open restaurants?
+- Increase <code>ITEM_CHOICES</code> to give LLM more options
+- Verify regex pattern matches model output format</p>
+<h3>Issue: Same items recommended repeatedly</h3>
+<p><strong>Cause:</strong> Random sampling may pick same items; LLM has bias toward certain choices</p>
+<p><strong>Solution:</strong>
+- Implement diversity filter (track recent selections)
+- Adjust prompt to request variety
+- Increase sample size to give LLM more options</p>
+<h3>Issue: Model download fails</h3>
+<p><strong>Cause:</strong> Network issues, HuggingFace API rate limiting</p>
+<p><strong>Solution:</strong>
+- Check internet connection
+- Pre-download model: <code>huggingface-cli download ibm-granite/granite-4.0-h-350M</code>
+- Set <code>HF_HOME</code> environment variable to persistent cache location</p>
+<hr />
+<h2>Summary</h2>
+<p>The LLM menu generation pipeline is a <strong>fully functional, well-tested system</strong> that uses artificial intelligence to create personalized meal plans. It demonstrates:</p>
+<ul>
+<li>✅ Database-driven filtering (hours, stock, allergens)</li>
+<li>✅ LLM integration with proper prompt engineering</li>
+<li>✅ Hardware acceleration (MPS/CUDA support)</li>
+<li>✅ Robust error handling and retries</li>
+<li>✅ Idempotent operations (preserves existing meals)</li>
+<li>✅ Comprehensive test coverage</li>
+</ul>
+<p>However, it <strong>lacks a user interface</strong> — the pipeline is only exercised in the test suite. Adding a simple Flask route and HTML form would make this feature immediately available to end users.</p>
+<p><strong>Estimated Effort to Deploy</strong>: 4-6 hours for basic UI + background processing.</p></article>
+<p><a href="../proj2.html">← Back to API Reference</a></p>
+</main></body></html>
