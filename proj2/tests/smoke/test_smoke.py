@@ -2,6 +2,7 @@
 import types
 import pytest
 
+
 @pytest.mark.parametrize("modname", ["Flask_app", "sqlQueries"])
 def test_modules_import(modname):
     """
@@ -11,6 +12,7 @@ def test_modules_import(modname):
     mod = importlib.import_module(modname)
     assert isinstance(mod, types.ModuleType)
 
+
 def test_flask_app_exposes_app_if_present():
     """
     Tests if the Flask_app module exposes a 'app' instance of the Flask class.
@@ -19,9 +21,11 @@ def test_flask_app_exposes_app_if_present():
     mod = importlib.import_module("Flask_app")
     if hasattr(mod, "app"):
         from flask import Flask
+
         assert isinstance(mod.app, Flask)
     else:
         pytest.skip("Flask_app.app not defined; skipping.")
+
 
 def test_root_route_if_client_available():
     """

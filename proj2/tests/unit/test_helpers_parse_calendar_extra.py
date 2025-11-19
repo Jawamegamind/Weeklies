@@ -32,18 +32,13 @@ def test_palette_deterministic_for_same_ids():
     p1 = Flask_app.palette_for_item_ids([1, 2, 3])
     p2 = Flask_app.palette_for_item_ids([1, 2, 3])
     assert p1 == p2
-    assert all(
-        isinstance(c, str) and len(c) == 7 and c.startswith("#")
-        for c in p1.values()
-    )
+    assert all(isinstance(c, str) and len(c) == 7 and c.startswith("#") for c in p1.values())
 
 
 def test_build_calendar_cells_empty_month_structure():
     today = _date.today()
     cells = Flask_app.build_calendar_cells({}, today.year, today.month, {})
-    weeks = _calendar.Calendar(firstweekday=6).monthdayscalendar(
-        today.year, today.month
-    )
+    weeks = _calendar.Calendar(firstweekday=6).monthdayscalendar(today.year, today.month)
     assert len(cells) == len(weeks) * 7
     zero_days = [c for c in cells if c.get("day") == 0]
     assert len(zero_days) == sum(1 for w in weeks for d in w if d == 0)

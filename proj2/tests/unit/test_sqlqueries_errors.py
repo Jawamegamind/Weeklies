@@ -1,4 +1,10 @@
-from proj2.sqlQueries import create_connection, close_connection, execute_query, fetch_all, fetch_one
+from proj2.sqlQueries import (
+    create_connection,
+    close_connection,
+    execute_query,
+    fetch_all,
+    fetch_one,
+)
 
 
 def test_execute_query_returns_none_on_sql_error(tmp_path):
