@@ -409,7 +409,7 @@ def restaurant_login():
             session["RestaurantName"] = restaurant[1]
             session["RestaurantEmail"] = email
             session.permanent = True
-            app.permanent_session_lifetime = timedelta(hours=8)  # Longer for restaurant staff
+            app.permanent_session_lifetime = timedelta(minutes=30)
 
             return redirect(url_for("restaurant_dashboard"))
 
