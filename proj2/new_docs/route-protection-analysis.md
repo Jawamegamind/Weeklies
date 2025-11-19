@@ -1,3 +1,9 @@
+---
+published: false
+------
+published: false
+---
+
 # Route Protection Analysis & Implementation Guide
 
 ## Current Status: ⚠️ **Inconsistent & Vulnerable**

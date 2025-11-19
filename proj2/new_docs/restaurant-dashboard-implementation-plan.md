@@ -1,3 +1,7 @@
+---
+published: false
+---
+
 # Restaurant Dashboard Implementation Plan
 
 ## 🎯 Goal
@@ -477,6 +481,7 @@ def restaurant_deliver_order(ord_id):
 
 **Template Changes:** `templates/orders.html`
 
+{% raw %}
 ```html
 <!-- Add status badge -->
 <span class="status-badge status-{{ order.status|lower }}">
@@ -498,6 +503,7 @@ def restaurant_deliver_order(ord_id):
     <p class="status-msg">❌ Order was cancelled.</p>
 {% endif %}
 ```
+{% endraw %}
 
 **CSS Additions:** `static/style.css`
 
