@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard · {{ restaurant_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <style>
+    /* Dashboard-specific styles */
+    .dashboard-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      border-radius: var(--radius);
+    }
+    
+    .dashboard-header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    
+    .restaurant-info h1 {
+      margin: 0;
+      font-size: 1.8rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .restaurant-info p {
+      margin: 0.5rem 0 0 0;
+      opacity: 0.9;
+      font-size: 0.95rem;
+    }
+    
+    .logout-btn {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+    
+    .logout-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+      text-decoration: none;
+    }
+    
+    .coming-soon {
+      background: var(--surface);
+      padding: 2rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      margin-bottom: 2rem;
+    }
+    
+    .coming-soon h2 {
+      margin-top: 0;
+      color: var(--text);
+    }
+    
+    .info-box {
+      background: var(--hint);
+      padding: 1.5rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      margin-top: 1.5rem;
+    }
+    
+    .info-box strong {
+      color: var(--text);
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+    
+    .info-box ul {
+      margin: 0.5rem 0;
+      padding-left: 1.5rem;
+      color: var(--muted);
+    }
+    
+    .info-box li {
+      margin: 0.4rem 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard-header">
+    <div class="container">
+      <div class="dashboard-header-content">
+        <div class="restaurant-info">
+          <h1>🍽️ {{ restaurant_name }}</h1>
+          <p>{{ restaurant_email }}</p>
+        </div>
+        <a href="{{ url_for('restaurant_logout') }}" class="logout-btn">Logout</a>
+      </div>
+    </div>
+  </div>
+  
+  <div class="container">
+    <div class="coming-soon">
+      <h2>Restaurant Dashboard - Coming Soon</h2>
+      <p style="color: var(--muted);">Orders will appear here in the next phase of development.</p>
+      
+      <div class="info-box">
+        <strong>✅ What's Working Now:</strong>
+        <ul>
+          <li>Restaurant authentication ✓</li>
+          <li>Protected routes with decorator ✓</li>
+          <li>Session management ✓</li>
+          <li>Logout functionality ✓</li>
+          <li>Cache-control headers ✓</li>
+        </ul>
+      </div>
+      
+      <div class="info-box">
+        <strong>🚀 Coming Next (Sprint 2):</strong>
+        <ul>
+          <li>View all restaurant orders</li>
+          <li>Accept/reject pending orders</li>
+          <li>Update order status workflow</li>
+          <li>Full dashboard interface with order cards</li>
+          <li>Real-time order statistics</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  
+  <footer class="footer">
+    <div class="container">© 2025 Weeklies · Restaurant Portal</div>
+  </footer>
+</body>
+</html>

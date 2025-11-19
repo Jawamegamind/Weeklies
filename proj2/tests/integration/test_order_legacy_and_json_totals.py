@@ -86,7 +86,9 @@ def test_orders_json_mixed_restaurants_400(client, temp_db_path, seed_minimal_da
     assert body.get("error") == "mixed_restaurants"
 
 
-def test_orders_json_success_with_weird_delivery_type(client, temp_db_path, seed_minimal_data, login_session):
+def test_orders_json_success_with_weird_delivery_type(
+    client, temp_db_path, seed_minimal_data, login_session
+):
     rtr_id = seed_minimal_data["rtr_id"]
     itm_id = _first_menu_item_id(temp_db_path, rtr_id)
 

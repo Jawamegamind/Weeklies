@@ -1,6 +1,7 @@
 from flask import session
 from datetime import date
 
+
 def test_login_sets_session_fields(client, seed_minimal_data):
     resp = client.post(
         "/login",
@@ -13,26 +14,33 @@ def test_login_sets_session_fields(client, seed_minimal_data):
         assert s.get("Username")
         assert s.get("usr_id")
 
+
 def test_profile_redirects_to_logout_when_email_missing(client, login_session):
     # simulate broken session with no Email
     with client.session_transaction() as s:
         s.pop("Email", None)
     r = client.get("/profile", follow_redirects=False)
     assert r.status_code in (302, 303)
-    assert "/logout" in r.headers.get("Location","")
+    assert "/logout" in r.headers.get("Location", "")
+
 
 def test_change_password_resolves_usr_id_by_email(client, login_session):
     # drop usr_id to force code path that resolves by email
     with client.session_transaction() as s:
         s.pop("usr_id", None)
-    r = client.post("/profile/change-password", data={
-        "current_password":"secret123",
-        "new_password":"newpass1",
-        "confirm_password":"newpass1",
-    }, follow_redirects=False)
+    r = client.post(
+        "/profile/change-password",
+        data={
+            "current_password": "secret123",
+            "new_password": "newpass1",
+            "confirm_password": "newpass1",
+        },
+        follow_redirects=False,
+    )
     # should redirect back to /profile?pw_updated=1 on success
     assert r.status_code in (302, 303)
-    assert "pw_updated=1" in r.headers.get("Location","")
+    assert "pw_updated=1" in r.headers.get("Location", "")
+
 
 def test_index_specific_year_month_ok(client, login_session):
     today = date.today()

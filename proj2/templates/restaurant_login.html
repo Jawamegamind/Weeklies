@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Login · Weeklies</title>
+  <title>Restaurant Login · Weeklies</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   <script src="{{ url_for('static', filename='script.js') }}" defer></script>
 </head>
@@ -14,7 +14,7 @@
       <span class="logo" aria-hidden="true"></span> Weeklies
     </a>
     <nav>
-      <a href="{{ url_for('login') }}">Login</a>
+      <a href="{{ url_for('login') }}">Customer Login</a>
     </nav>
   </div>
 </header>
@@ -27,24 +27,31 @@
 
     <div class="auth">
       <div class="card compact">
-        <div class="card-header" style="font-size: 1.5rem;">Login</div>
+        <div class="card-header" style="font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+          <span style="font-size: 1.8rem;">🍽️</span>
+          Restaurant Portal
+        </div>
         <div class="card-body">
-          <form action="{{ url_for('login') }}" method="post">
-            <label for="email">Email</label>
-            <input class="input" type="email" id="email" name="email" required />
+          <p style="color: var(--muted); margin-bottom: 1.5rem; text-align: center;">
+            Login to manage your restaurant orders
+          </p>
+          
+          <form action="{{ url_for('restaurant_login') }}" method="post">
+            <label for="email">Restaurant Email</label>
+            <input class="input" type="email" id="email" name="email" 
+                   placeholder="restaurant@example.com" required />
 
             <label for="password">Password</label>
             <input class="input" type="password" id="password" name="password" required />
 
             <br>
 
-            <input type="submit" value="Login" class="btn btn-primary btn-block" />
-            <a href="{{ url_for('register') }}" class="btn btn-secondary btn-block">Register</a>
+            <input type="submit" value="Login to Dashboard" class="btn btn-primary btn-block" />
           </form>
           
           <div style="text-align: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border);">
-            <a href="{{ url_for('restaurant_login') }}" style="color: var(--muted); font-size: 0.9rem;">
-              🍽️ Restaurant Owner? Login here →
+            <a href="{{ url_for('login') }}" style="color: var(--muted); font-size: 0.9rem;">
+              ← Back to Customer Login
             </a>
           </div>
         </div>
@@ -83,7 +90,7 @@
 
   /* reduce vertical padding inside the card */
   .auth .card.compact .card-body {
-    padding: .1rem;
+    padding: 1.5rem;
   }
 </style>
 

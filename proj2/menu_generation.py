@@ -10,7 +10,7 @@ from typing import Tuple, List
 import proj2.llm_toolkit as llm_toolkit
 from proj2.sqlQueries import *
 
-db_file = os.path.join(os.path.dirname(__file__), 'CSC510_DB.db')
+db_file = os.path.join(os.path.dirname(__file__), "CSC510_DB.db")
 
 ## LLM error handling
 MAX_LLM_TRIES = 3
@@ -24,12 +24,12 @@ DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 ## LLM Prompt - defined as global variables to enable testing
 SYSTEM_TEMPLATE = "You are a health and nutrition expert planning meals for a customer based on their preferences. Use only the menu items provided under CSV CONTEXT."
-PROMPT_TEMPLATE = '''Choose a meal for a customer based on their preferences: {preferences}
+PROMPT_TEMPLATE = """Choose a meal for a customer based on their preferences: {preferences}
 Make sure that the item makes sense for {meal}.
 Provide only the itm_id as output
 
 CSV CONTEXT:
-{context}'''
+{context}"""
 
 ## Regex used for parsing a number from LLM Output
 LLM_OUTPUT_MATCH = r"<\|start_of_role\|>assistant<\|end_of_role\|>(\d+)<\|end_of_text\|>"
@@ -39,7 +39,8 @@ BREAKFAST_TIME = 1000
 LUNCH_TIME = 1400
 DINNER_TIME = 2000
 
-def get_meal_and_order_time(meal_number : int) -> Tuple[str, int]:
+
+def get_meal_and_order_time(meal_number: int) -> Tuple[str, int]:
     """
     Maps a meal number to it's cooresponding meal as a string as well as its cooreponding meal time
 
@@ -69,6 +70,7 @@ def get_meal_and_order_time(meal_number : int) -> Tuple[str, int]:
             raise ValueError("The meal number must be 1, 2, or 3")
     return meal, order_time
 
+
 def get_weekday_and_increment(date: str) -> Tuple[str, str]:
     """
     Converts a date string in YYYY-MM-DD format to the corresponding day of the week and returns the next date
@@ -87,9 +89,12 @@ def get_weekday_and_increment(date: str) -> Tuple[str, str]:
     try:
         date = datetime.datetime(year, month, day)
     except:
-        raise ValueError("Unable to parse date string. Ensure it is formatted properly as to YYYY-MM-DD format")
+        raise ValueError(
+            "Unable to parse date string. Ensure it is formatted properly as to YYYY-MM-DD format"
+        )
     next_day = date + datetime.timedelta(days=1)
     return next_day.strftime(r"%Y-%m-%d"), DAYS_OF_WEEK[date.weekday()]
+
 
 def format_llm_output(output: str) -> int:
     """
@@ -112,10 +117,13 @@ def format_llm_output(output: str) -> int:
         return LLM_ATTRIBUTE_ERROR
     try:
         print(re.search(match, output).group(2))
-        raise ValueError("Injection attack may have gotten through. There should not be multiple matches for LLM output.")
+        raise ValueError(
+            "Injection attack may have gotten through. There should not be multiple matches for LLM output."
+        )
     except Exception:
-        None   
+        None
     return result
+
 
 def limit_scope(items: pd.DataFrame, num_choices: int) -> List[int]:
     """
@@ -134,6 +142,7 @@ def limit_scope(items: pd.DataFrame, num_choices: int) -> List[int]:
         choices = random.sample(choices, num_choices)
     return choices
 
+
 def filter_allergens(menu_items: pd.DataFrame, allergens: str) -> pd.DataFrame:
     """
     Filters out menu items that contain any of the specified allergens from the provided DataFrame
@@ -147,10 +156,11 @@ def filter_allergens(menu_items: pd.DataFrame, allergens: str) -> pd.DataFrame:
     """
     for index, rows in menu_items.iterrows():
         if rows["allergens"] is not None:
-            item_allergens = rows['allergens'].split(',')
-            if any (allergen in item_allergens for allergen in allergens.split(',')):
+            item_allergens = rows["allergens"].split(",")
+            if any(allergen in item_allergens for allergen in allergens.split(",")):
                 menu_items.drop(index, inplace=True)
     return menu_items
+
 
 def filter_closed_restaurants(restaurant: pd.DataFrame, weekday: str, time: int) -> pd.DataFrame:
     """
@@ -172,7 +182,7 @@ def filter_closed_restaurants(restaurant: pd.DataFrame, weekday: str, time: int)
         elif len(opening_times) >= 2:
             open = False
             for x in range(int(len(opening_times) / 2)):
-                if opening_times[x*2] <= time and opening_times[x*2+1] >= time:
+                if opening_times[x * 2] <= time and opening_times[x * 2 + 1] >= time:
                     open = True
             if not open:
                 restaurant = restaurant[restaurant["rtr_id"] != rows["rtr_id"]]
@@ -180,24 +190,27 @@ def filter_closed_restaurants(restaurant: pd.DataFrame, weekday: str, time: int)
             restaurant = restaurant[restaurant["rtr_id"] != rows["rtr_id"]]
     return restaurant
 
+
 class MenuGenerator:
     """
     MenuGenerator class that uses an LLM to generate menu items based on user preferences and restrictions
     """
-    
+
     def __init__(self, tokens: int = 500):
         """
         Initializes the MenuGenerator with menu items and restaurants from the database and initializes
         the local LLM.
-        
+
         Args:
             tokens (int): The number of tokens to use for the LLM generation
         """
         conn = create_connection(db_file)
         self.menu_items = pd.read_sql_query("SELECT * FROM MenuItem WHERE instock == 1", conn)
-        self.restaurants = pd.read_sql_query("SELECT rtr_id, hours FROM Restaurant WHERE status==\"Open\"", conn)
+        self.restaurants = pd.read_sql_query(
+            'SELECT rtr_id, hours FROM Restaurant WHERE status=="Open"', conn
+        )
         close_connection(conn)
-        
+
         self.generator = llm_toolkit.LLM(tokens=tokens)
 
     def __get_context(self, allergens: str, weekday: str, order_time: int, num_choices: int) -> str:
@@ -210,17 +223,17 @@ class MenuGenerator:
             order_time (int): The time the meal is typically ordered at in HHMM format (in 24H time)
             num_choices (int): The maximum number of choices to provide in the context
             item_ids (List[int]): The list of item_ids passed - used for checking validity
-        
+
         Returns:
             str: The context block for the LLM in CSV format
         """
         start = time.time()
-        
+
         combined = pd.merge(self.menu_items, self.restaurants, on="rtr_id", how="left")
 
         ## Removes restaurants that are closed during the order time
         combined = filter_closed_restaurants(combined, weekday, order_time)
-        
+
         ## Removes items that contain allergens
         combined = filter_allergens(combined, allergens)
 
@@ -228,19 +241,21 @@ class MenuGenerator:
         choices = limit_scope(combined, num_choices)
 
         context_data = "item_id,name,description,price,calories\n"
-        
+
         ## Create the context data with the chosen items
         item_ids = []
         for x in choices:
             row = combined.iloc[x]
             context_data += f"{row['itm_id']},{row['name']},{row['description']},{row['price']},{row['calories']}\n"
-            item_ids.append(row['itm_id'])
+            item_ids.append(row["itm_id"])
 
         end = time.time()
         print("Context block generated in %.4f seconds" % (end - start))
         return context_data, item_ids
 
-    def __pick_menu_item(self, preferences: str, allergens: str, weekday: str, meal_number: int) -> int:
+    def __pick_menu_item(
+        self, preferences: str, allergens: str, weekday: str, meal_number: int
+    ) -> int:
         """
         Picks a menu item based on user preferences, allergens, date, and meal number
 
@@ -276,14 +291,24 @@ class MenuGenerator:
                 return output
             ## If failed, try increasing the number of choices
             num_choices += ITEM_CHOICES
-        raise RuntimeError(f'''LLM has failed {MAX_LLM_TRIES} times to generate a meal. This may be a critical error, a lack of options, or a bad prompt. 
+        raise RuntimeError(
+            f"""LLM has failed {MAX_LLM_TRIES} times to generate a meal. This may be a critical error, a lack of options, or a bad prompt. 
 LLM output:
-{llm_output}''')
-    
-    def update_menu(self, menu: str, preferences: str, allergens: str, date: str, meal_numbers: List[int], number_of_days: int = 1) -> str:
+{llm_output}"""
+        )
+
+    def update_menu(
+        self,
+        menu: str,
+        preferences: str,
+        allergens: str,
+        date: str,
+        meal_numbers: List[int],
+        number_of_days: int = 1,
+    ) -> str:
         """
         Updates the menu string with a new menu item based on user preferences, allergens, date, and meal number
-        
+
         Args:
             menu (str): The current menu string (can be empty or None)
             preferences (str): A comma-separated string of user preferences
@@ -291,7 +316,7 @@ LLM output:
             date (str): The date string in YYYY-MM-DD format
             meal_number (List[int]): The list of meal numbers to generate (1 for breakfast, 2 for lunch, 3 for dinner). e.g. [1,2,3]
             number_of_days (int): The number of days to generate meals for, past the {date} specified
-        
+
         Returns:
             str: The updated menu string
         """
@@ -299,14 +324,17 @@ LLM output:
         for x in range(number_of_days):
             for meal_number in meal_numbers:
                 if menu is None or len(menu) < 1:
-                    itm_id = self.__pick_menu_item(preferences, allergens, current_weekday, meal_number)
+                    itm_id = self.__pick_menu_item(
+                        preferences, allergens, current_weekday, meal_number
+                    )
                     menu = f"[{date},{itm_id},{meal_number}]"
-                elif re.search(fr"\[{date},\d+,{meal_number}\]", menu) is None:
-                    print(fr"\[{date},\d+,{meal_number}\]")
+                elif re.search(rf"\[{date},\d+,{meal_number}\]", menu) is None:
+                    print(rf"\[{date},\d+,{meal_number}\]")
                     print(menu)
-                    itm_id = self.__pick_menu_item(preferences, allergens, current_weekday, meal_number)
+                    itm_id = self.__pick_menu_item(
+                        preferences, allergens, current_weekday, meal_number
+                    )
                     menu = f"{menu},[{date},{itm_id},{meal_number}]"
             date = next_date
             next_date, current_weekday = get_weekday_and_increment(date)
         return menu
-        

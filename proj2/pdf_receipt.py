@@ -64,23 +64,31 @@ def generate_order_receipt_pdf(db_file: str, ord_id: int) -> bytes:
     conn = create_connection(db_file)
     try:
         # Order: ord_id,rtr_id,usr_id,details,status
-        orow = fetch_one(conn, 'SELECT ord_id, rtr_id, usr_id, details, status FROM "Order" WHERE ord_id = ?', (ord_id,))
+        orow = fetch_one(
+            conn,
+            'SELECT ord_id, rtr_id, usr_id, details, status FROM "Order" WHERE ord_id = ?',
+            (ord_id,),
+        )
         if not orow:
             raise ValueError("Order not found")
 
         ord_id, rtr_id, usr_id, details, status = orow
 
         # User
-        urow = fetch_one(conn,
-                         'SELECT first_name, last_name, email, phone FROM "User" WHERE usr_id = ?',
-                         (usr_id,))
-        first_name, last_name, email, phone = (urow or ("", "", "", ""))
+        urow = fetch_one(
+            conn,
+            'SELECT first_name, last_name, email, phone FROM "User" WHERE usr_id = ?',
+            (usr_id,),
+        )
+        first_name, last_name, email, phone = urow or ("", "", "", "")
 
         # Restaurant
-        rrow = fetch_one(conn,
-                         'SELECT name, address, city, state, zip, phone FROM "Restaurant" WHERE rtr_id = ?',
-                         (rtr_id,))
-        r_name, r_addr, r_city, r_state, r_zip, r_phone = (rrow or ("", "", "", "", "", ""))
+        rrow = fetch_one(
+            conn,
+            'SELECT name, address, city, state, zip, phone FROM "Restaurant" WHERE rtr_id = ?',
+            (rtr_id,),
+        )
+        r_name, r_addr, r_city, r_state, r_zip, r_phone = rrow or ("", "", "", "", "", "")
 
         # Parse details JSON (new format)
         j = {}
@@ -132,7 +140,9 @@ def generate_order_receipt_pdf(db_file: str, ord_id: int) -> bytes:
         c.setFont("Helvetica", 10)
         c.drawRightString(width - margin, y - 14, _safe_str(r_name))
         c.drawRightString(width - margin, y - 28, f"{_safe_str(r_addr)}")
-        c.drawRightString(width - margin, y - 42, f"{_safe_str(r_city)}, {_safe_str(r_state)} {_safe_str(r_zip)}")
+        c.drawRightString(
+            width - margin, y - 42, f"{_safe_str(r_city)}, {_safe_str(r_state)} {_safe_str(r_zip)}"
+        )
         c.drawRightString(width - margin, y - 56, f"Phone: {_safe_str(r_phone)}")
 
         y -= 78
@@ -179,6 +189,7 @@ def generate_order_receipt_pdf(db_file: str, ord_id: int) -> bytes:
 
         # Charges
         c.setFont("Helvetica", 10)
+
         def row(label, value):
             """
             Draw a label-value row for a charge line.

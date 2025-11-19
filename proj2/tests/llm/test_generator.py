@@ -7,14 +7,14 @@ import proj2.menu_generation as menu_generation
 from proj2.sqlQueries import *
 from proj2.Flask_app import parse_generated_menu
 
-db_file = os.path.join(os.path.dirname(__file__), '../../CSC510_DB.db')
+db_file = os.path.join(os.path.dirname(__file__), "../../CSC510_DB.db")
 
 generator = menu_generation.MenuGenerator()
 conn = create_connection(db_file)
 menu_items = pd.read_sql_query("SELECT * FROM MenuItem WHERE instock == 1", conn)
 close_connection(conn)
 
-'''
+"""
 menugenerator_single_menu1 = generator.update_menu(menu = None, preferences = "high protein,low carb", allergens = "Peanuts,Shellfish", date = "2025-10-14", meal_numbers = [2])
 menugenerator_single_menu2 = generator.update_menu(menu = menugenerator_single_menu1, preferences = "high protein,low carb", allergens = "Peanuts,Shellfish", date = "2025-10-14", meal_numbers = [3])
 menugenerator_single_menu3 = generator.update_menu(menu = menugenerator_single_menu2, preferences = "high protein,low carb", allergens = "Peanuts,Shellfish", date = "2025-10-15", meal_numbers = [1])
@@ -162,8 +162,16 @@ def test_MenuGenerator_multiple_days_correct_meals():
     assert parsed3["2025-10-15"][1]["meal"] == 2
     assert parsed3["2025-10-15"][2]["meal"] == 3
 
-'''
-menugenerator_multiple_days_multiple_meals_menu = generator.update_menu(menu = None, preferences = "high protein,low carb", allergens = "Peanuts,Shellfish", date = "2025-10-14", meal_numbers = [1,2,3], number_of_days = 2)
+"""
+menugenerator_multiple_days_multiple_meals_menu = generator.update_menu(
+    menu=None,
+    preferences="high protein,low carb",
+    allergens="Peanuts,Shellfish",
+    date="2025-10-14",
+    meal_numbers=[1, 2, 3],
+    number_of_days=2,
+)
+
 
 def test_MenuGenerator_multiple_days_multiple_meals_valid_items():
     parsed = parse_generated_menu(menugenerator_multiple_days_multiple_meals_menu)
@@ -175,6 +183,7 @@ def test_MenuGenerator_multiple_days_multiple_meals_valid_items():
     assert menu_items[menu_items["itm_id"] == parsed["2025-10-15"][1]["itm_id"]].shape[0] == 1
     assert menu_items[menu_items["itm_id"] == parsed["2025-10-15"][2]["itm_id"]].shape[0] == 1
 
+
 def test_MenuGenerator_multiple_days_multiple_meals_correct_meals():
     parsed = parse_generated_menu(menugenerator_multiple_days_multiple_meals_menu)
 
@@ -185,11 +194,28 @@ def test_MenuGenerator_multiple_days_multiple_meals_correct_meals():
     assert parsed["2025-10-15"][1]["meal"] == 2
     assert parsed["2025-10-15"][2]["meal"] == 3
 
+
 def test_MenuGenerator_full_duplicate():
-    attempt_duplicate = generator.update_menu(menu = menugenerator_multiple_days_multiple_meals_menu, preferences = "high protein,low carb", allergens = "Peanuts,Shellfish", date = "2025-10-14", meal_numbers = [1,2,3], number_of_days = 2)
+    attempt_duplicate = generator.update_menu(
+        menu=menugenerator_multiple_days_multiple_meals_menu,
+        preferences="high protein,low carb",
+        allergens="Peanuts,Shellfish",
+        date="2025-10-14",
+        meal_numbers=[1, 2, 3],
+        number_of_days=2,
+    )
     assert attempt_duplicate == menugenerator_multiple_days_multiple_meals_menu
 
-menugenerator_partial_duplicate = generator.update_menu(menu = menugenerator_multiple_days_multiple_meals_menu, preferences = "high protein,low carb", allergens = "Peanuts,Shellfish", date = "2025-10-14", meal_numbers = [2,3], number_of_days = 3)
+
+menugenerator_partial_duplicate = generator.update_menu(
+    menu=menugenerator_multiple_days_multiple_meals_menu,
+    preferences="high protein,low carb",
+    allergens="Peanuts,Shellfish",
+    date="2025-10-14",
+    meal_numbers=[2, 3],
+    number_of_days=3,
+)
+
 
 def test_MenuGenerator_partial_duplicate_no_regression():
     parse_original = parse_generated_menu(menugenerator_multiple_days_multiple_meals_menu)
@@ -201,12 +227,24 @@ def test_MenuGenerator_partial_duplicate_no_regression():
     assert parse_original["2025-10-15"][0] == parse_partial_duplicate["2025-10-15"][0]
     assert parse_original["2025-10-15"][1] == parse_partial_duplicate["2025-10-15"][1]
     assert parse_original["2025-10-15"][2] == parse_partial_duplicate["2025-10-15"][2]
-    
+
+
 def test_MenuGenerator_partial_duplicate_valid_items():
     parse_partial_duplicate = parse_generated_menu(menugenerator_partial_duplicate)
 
-    assert menu_items[menu_items["itm_id"] == parse_partial_duplicate["2025-10-16"][0]["itm_id"]].shape[0] == 1
-    assert menu_items[menu_items["itm_id"] == parse_partial_duplicate["2025-10-16"][1]["itm_id"]].shape[0] == 1
+    assert (
+        menu_items[
+            menu_items["itm_id"] == parse_partial_duplicate["2025-10-16"][0]["itm_id"]
+        ].shape[0]
+        == 1
+    )
+    assert (
+        menu_items[
+            menu_items["itm_id"] == parse_partial_duplicate["2025-10-16"][1]["itm_id"]
+        ].shape[0]
+        == 1
+    )
+
 
 def test_MenuGenerator_partial_duplicate_correct_meals():
     parse_partial_duplicate = parse_generated_menu(menugenerator_partial_duplicate)
