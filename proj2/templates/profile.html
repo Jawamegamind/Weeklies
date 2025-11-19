@@ -115,6 +115,47 @@
       </div>
     </div>
 
+    <!-- AI Menu Generation -->
+    <div class="page-title" style="margin-top: 20px;">
+      <h1>Generate Meal Plan (AI)</h1>
+    </div>
+    <div class="card max-w-lg" style="max-width: var(--container);">
+      <div class="card-body">
+        {% if request.args.get('gen_error') %}
+          <div class="flash danger" data-autohide="5000">Menu generation failed. Please try again.</div>
+        {% endif %}
+        <form method="POST" action="{{ url_for('generate_menu') }}" class="form-grid">
+          <div class="form-row">
+            <label for="start_date">Start date</label>
+            <input class="input" type="date" id="start_date" name="start_date" value="{{ (now().date() if false else '') }}" placeholder="YYYY-MM-DD">
+          </div>
+          <div class="form-row" style="display:flex; gap:14px; align-items:center;">
+            <label style="min-width:120px;">Meals</label>
+            <label><input type="checkbox" name="meal1" checked> Breakfast</label>
+            <label><input type="checkbox" name="meal2" checked> Lunch</label>
+            <label><input type="checkbox" name="meal3" checked> Dinner</label>
+          </div>
+          <div class="form-row">
+            <label for="days">Number of days</label>
+            <input class="input" type="number" id="days" name="days" min="1" max="14" value="1" style="width:120px;">
+          </div>
+          <!-- Optional overrides; leave blank to use your saved profile -->
+          <div class="form-row">
+            <label for="preferences">Preferences (override)</label>
+            <input class="input" type="text" id="preferences" name="preferences" placeholder="e.g., high protein, low carb">
+          </div>
+          <div class="form-row">
+            <label for="allergens">Allergens (override)</label>
+            <input class="input" type="text" id="allergens" name="allergens" placeholder="e.g., Peanuts,Shellfish">
+          </div>
+          <div class="form-row" style="margin-top: 10px;">
+            <button type="submit" class="btn btn-primary">Generate Plan</button>
+            <span class="muted" style="margin-left:10px;">The first run may take longer to load the local model.</span>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- Order Tracking -->
     <div class="page-title" style="margin-top: 20px;">
       <h1>Order Tracking</h1>

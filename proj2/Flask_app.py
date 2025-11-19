@@ -11,6 +11,7 @@ from sqlite3 import IntegrityError
 from datetime import timedelta, date, datetime
 from functools import wraps
 from proj2.pdf_receipt import generate_order_receipt_pdf
+from proj2.menu_generation import MenuGenerator
 from werkzeug.security import check_password_hash, generate_password_hash
 from flask import Flask, render_template, url_for, redirect, request, session, send_file, abort
 
@@ -1284,6 +1285,114 @@ def db_view():
         start=start,
         end=end,
     )
+
+
+# ----------- LLM Menu Generation Route -----------
+@app.route('/menu/generate', methods=['POST'])
+def generate_menu():
+    """
+    Generate or extend the logged-in user's AI menu plan and persist it.
+
+    Supports application/json and HTML form submissions.
+    """
+    if session.get('Username') is None:
+        return redirect(url_for('login'))
+
+    # Load user row (need preferences, allergies, existing generated_menu)
+    conn = create_connection(db_file)
+    try:
+        user = fetch_one(
+            conn,
+            'SELECT usr_id, email, preferences, allergies, generated_menu FROM "User" WHERE email = ?',
+            (session.get('Email'),)
+        )
+    finally:
+        close_connection(conn)
+
+    if not user:
+        return redirect(url_for('logout'))
+
+    usr_id = user[0]
+    prefs_db = user[2] or ""
+    allergies_db = user[3] or ""
+    existing_menu = user[4] or ""
+
+    # Parse inputs
+    if request.is_json:
+        payload = request.get_json(silent=True) or {}
+        start_date = (payload.get('start_date') or date.today().isoformat()).strip()
+        try:
+            meal_numbers = [int(x) for x in (payload.get('meal_numbers') or [1,2,3])]
+        except Exception:
+            meal_numbers = [1,2,3]
+        try:
+            number_of_days = int(payload.get('number_of_days') or 1)
+        except Exception:
+            number_of_days = 1
+        preferences = (payload.get('preferences') or prefs_db).strip()
+        allergies = (payload.get('allergens') or allergies_db).strip()
+        want_json = True
+    else:
+        start_date = (request.form.get('start_date') or date.today().isoformat()).strip()
+        try:
+            number_of_days = int(request.form.get('days') or 1)
+        except Exception:
+            number_of_days = 1
+        sel = []
+        if request.form.get('meal1'): sel.append(1)
+        if request.form.get('meal2'): sel.append(2)
+        if request.form.get('meal3'): sel.append(3)
+        meal_numbers = sel or [1,2,3]
+        preferences = (request.form.get('preferences') or prefs_db).strip()
+        allergies = (request.form.get('allergens') or allergies_db).strip()
+        want_json = False
+
+    # Validate start_date
+    try:
+        _ = datetime.fromisoformat(start_date)
+    except Exception:
+        start_date = date.today().isoformat()
+
+    # Clamp days
+    if number_of_days < 1:
+        number_of_days = 1
+    if number_of_days > 14:
+        number_of_days = 14
+
+    # Generate
+    try:
+        gen = MenuGenerator(tokens=100)
+        updated_menu = gen.update_menu(
+            menu=existing_menu,
+            preferences=preferences,
+            allergens=allergies,
+            date=start_date,
+            meal_numbers=meal_numbers,
+            number_of_days=number_of_days,
+        )
+    except Exception as e:
+        if want_json:
+            return jsonify({"ok": False, "error": str(e)}), 500
+        return redirect(url_for('profile', gen_error=1))
+
+    # Persist
+    conn = create_connection(db_file)
+    try:
+        execute_query(conn, 'UPDATE "User" SET generated_menu = ? WHERE usr_id = ?', (updated_menu, usr_id))
+    finally:
+        close_connection(conn)
+
+    session['GeneratedMenu'] = updated_menu
+
+    if want_json:
+        return jsonify({
+            "ok": True,
+            "generated_menu": updated_menu,
+            "start_date": start_date,
+            "meal_numbers": meal_numbers,
+            "number_of_days": number_of_days
+        })
+    return redirect(url_for('index'))
 
 
 def parse_args() -> argparse.Namespace:
