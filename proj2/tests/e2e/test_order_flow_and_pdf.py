@@ -1,6 +1,7 @@
 import json
 from proj2.sqlQueries import create_connection, close_connection, fetch_one, fetch_all
 
+
 def test_order_post_and_receipt_pdf(client, seed_minimal_data, login_session, tmp_path):
     rtr_id = seed_minimal_data["rtr_id"]
 
@@ -11,15 +12,18 @@ def test_order_post_and_receipt_pdf(client, seed_minimal_data, login_session, tm
     items = [{"itm_id": 1, "qty": 2}, {"itm_id": 2, "qty": 1}]
 
     # Place single-order POST
-    resp = client.post("/order", json={
-        "restaurant_id": rtr_id,
-        "items": items,
-        "delivery_type": "delivery",
-        "tip": 1.23,
-        "eta_minutes": 30,
-        "date": "2025-11-02",
-        "meal": 3
-    })
+    resp = client.post(
+        "/order",
+        json={
+            "restaurant_id": rtr_id,
+            "items": items,
+            "delivery_type": "delivery",
+            "tip": 1.23,
+            "eta_minutes": 30,
+            "date": "2025-11-02",
+            "meal": 3,
+        },
+    )
     assert resp.status_code == 200, resp.data
     body = resp.get_json()
     assert body and body.get("ok") is True and body.get("ord_id")
@@ -31,6 +35,7 @@ def test_order_post_and_receipt_pdf(client, seed_minimal_data, login_session, tm
     assert pdf.status_code == 200
     assert pdf.mimetype == "application/pdf"
     assert pdf.data.startswith(b"%PDF-1.")  # from fake pdf in fixture
+
 
 def test_db_view_pagination(client, seed_minimal_data, login_session):
     # default table=User, page defaults to 1

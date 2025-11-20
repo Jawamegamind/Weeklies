@@ -1,3 +1,7 @@
+---
+published: false
+---
+
 # LLM-Powered Menu Generation Pipeline
 
 ## Overview

@@ -17,7 +17,9 @@ def _insert_order_for_user(db_path, usr_id, rtr_id):
             'INSERT INTO "Order"(rtr_id, usr_id, details, status) VALUES (?,?,?,?)',
             (rtr_id, usr_id, "{}", "paid"),
         )
-        row = fetch_one(conn, 'SELECT ord_id FROM "Order" WHERE usr_id = ? ORDER BY ord_id DESC', (usr_id,))
+        row = fetch_one(
+            conn, 'SELECT ord_id FROM "Order" WHERE usr_id = ? ORDER BY ord_id DESC', (usr_id,)
+        )
         return row[0]
     finally:
         close_connection(conn)
@@ -28,7 +30,9 @@ def test_order_receipt_404_when_order_missing(client, login_session):
     assert resp.status_code == 404
 
 
-def test_order_receipt_403_when_order_belongs_to_other_user(client, temp_db_path, seed_minimal_data, login_session):
+def test_order_receipt_403_when_order_belongs_to_other_user(
+    client, temp_db_path, seed_minimal_data, login_session
+):
     data = seed_minimal_data
     rtr_id = data["rtr_id"]
 
@@ -38,7 +42,7 @@ def test_order_receipt_403_when_order_belongs_to_other_user(client, temp_db_path
         execute_query(
             conn,
             'INSERT INTO "User"(first_name, last_name, email, phone, password_HS, wallet, preferences, allergies) '
-            'VALUES ("Other","User","other@example.com","5550000","x",0,"","")'
+            'VALUES ("Other","User","other@example.com","5550000","x",0,"","")',
         )
         row = fetch_one(conn, 'SELECT usr_id FROM "User" WHERE email = ?', ("other@example.com",))
         other_usr_id = row[0]
@@ -52,7 +56,9 @@ def test_order_receipt_403_when_order_belongs_to_other_user(client, temp_db_path
     assert resp.status_code == 403
 
 
-def test_order_receipt_403_when_usr_id_missing_and_email_mismatch(client, temp_db_path, seed_minimal_data, login_session):
+def test_order_receipt_403_when_usr_id_missing_and_email_mismatch(
+    client, temp_db_path, seed_minimal_data, login_session
+):
     data = seed_minimal_data
     rtr_id = data["rtr_id"]
 
@@ -62,7 +68,7 @@ def test_order_receipt_403_when_usr_id_missing_and_email_mismatch(client, temp_d
         execute_query(
             conn,
             'INSERT INTO "User"(first_name, last_name, email, phone, password_HS, wallet, preferences, allergies) '
-            'VALUES ("Third","User","third@example.com","5550001","x",0,"","")'
+            'VALUES ("Third","User","third@example.com","5550001","x",0,"","")',
         )
         row = fetch_one(conn, 'SELECT usr_id FROM "User" WHERE email = ?', ("third@example.com",))
         third_usr_id = row[0]

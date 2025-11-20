@@ -17,7 +17,13 @@ if platform.system() == "Windows":
     # Disable torch compile optimization which can cause issues on Windows
     os.environ["TORCH_COMPILE"] = "0"
 
-from proj2.sqlQueries import create_connection, close_connection, fetch_one, fetch_all, execute_query
+from proj2.sqlQueries import (
+    create_connection,
+    close_connection,
+    fetch_one,
+    fetch_all,
+    execute_query,
+)
 
 
 class LLM:
@@ -47,12 +53,16 @@ class LLM:
         Args:
             tokens (int): The max number of generated characters
         """
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model, cache_dir=os.path.join(os.path.dirname(__file__), '.hf_cache'))
-        
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.model, cache_dir=os.path.join(os.path.dirname(__file__), ".hf_cache")
+        )
+
         # Load model with appropriate device configuration
         if self.device == "mps":
             # MPS (Metal Performance Shaders) for Apple Silicon
-            self.model = AutoModelForCausalLM.from_pretrained(self.model, cache_dir=os.path.join(os.path.dirname(__file__), '.hf_cache'))
+            self.model = AutoModelForCausalLM.from_pretrained(
+                self.model, cache_dir=os.path.join(os.path.dirname(__file__), ".hf_cache")
+            )
             self.model = self.model.to(self.device)
         elif self.device == "cuda":
             # CUDA for NVIDIA GPUs
@@ -60,11 +70,10 @@ class LLM:
         else:
             # CPU fallback (including Windows)
             self.model = AutoModelForCausalLM.from_pretrained(self.model, device_map=self.device)
-        
+
         self.model.eval()
         self.tokens = tokens
         print(f"LLM initialized on device: {self.device}")
-
 
     def generate(self, context: str, prompt: str) -> str:
         """
@@ -72,7 +81,7 @@ class LLM:
 
         Args:
             context (str): The system context to provide to the LLM
-            prompt (str): The user prompt to provide to the LLM  
+            prompt (str): The user prompt to provide to the LLM
 
         Returns:
             str: The raw, unformatted output from the LLM
@@ -86,8 +95,7 @@ class LLM:
         # tokenize the text
         input_tokens = self.tokenizer(chat, return_tensors="pt").to(self.device)
         # generate output tokens
-        output = self.model.generate(**input_tokens, 
-                                    max_new_tokens=self.tokens)
+        output = self.model.generate(**input_tokens, max_new_tokens=self.tokens)
         # decode output tokens into text
         output = self.tokenizer.batch_decode(output)[0]
         end = time.time()

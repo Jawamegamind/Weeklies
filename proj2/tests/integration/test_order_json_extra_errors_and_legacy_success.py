@@ -14,7 +14,9 @@ def _first_menu_item_id(db_path, rtr_id):
         close_connection(conn)
 
 
-def test_orders_json_no_items_error_when_all_ids_nonpositive(client, temp_db_path, seed_minimal_data, login_session):
+def test_orders_json_no_items_error_when_all_ids_nonpositive(
+    client, temp_db_path, seed_minimal_data, login_session
+):
     rtr_id = seed_minimal_data["rtr_id"]
 
     payload = {
@@ -27,7 +29,9 @@ def test_orders_json_no_items_error_when_all_ids_nonpositive(client, temp_db_pat
     assert body.get("error") == "no_items"
 
 
-def test_orders_json_items_not_found_when_db_has_no_rows(client, temp_db_path, seed_minimal_data, login_session):
+def test_orders_json_items_not_found_when_db_has_no_rows(
+    client, temp_db_path, seed_minimal_data, login_session
+):
     rtr_id = seed_minimal_data["rtr_id"]
 
     payload = {
@@ -40,7 +44,9 @@ def test_orders_json_items_not_found_when_db_has_no_rows(client, temp_db_path, s
     assert body.get("error") == "items_not_found"
 
 
-def test_orders_json_item_specific_not_found(client, temp_db_path, seed_minimal_data, login_session):
+def test_orders_json_item_specific_not_found(
+    client, temp_db_path, seed_minimal_data, login_session
+):
     rtr_id = seed_minimal_data["rtr_id"]
     real_itm = _first_menu_item_id(temp_db_path, rtr_id)
 
@@ -57,7 +63,9 @@ def test_orders_json_item_specific_not_found(client, temp_db_path, seed_minimal_
     assert body.get("error") == "item_999999_not_found"
 
 
-def test_legacy_get_order_success_redirects_to_profile(client, temp_db_path, seed_minimal_data, login_session):
+def test_legacy_get_order_success_redirects_to_profile(
+    client, temp_db_path, seed_minimal_data, login_session
+):
     rtr_id = seed_minimal_data["rtr_id"]
     itm_id = _first_menu_item_id(temp_db_path, rtr_id)
 

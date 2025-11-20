@@ -15,14 +15,21 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from flask import Flask, render_template, url_for, redirect, request, session, send_file, abort
 
 # Use ONLY these helpers for DB access
-from proj2.sqlQueries import create_connection, close_connection, fetch_one, fetch_all, execute_query
+from proj2.sqlQueries import (
+    create_connection,
+    close_connection,
+    fetch_one,
+    fetch_all,
+    execute_query,
+)
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your_secret_key_here'
+app.config["SECRET_KEY"] = "your_secret_key_here"
 
-db_file = os.path.join(os.path.dirname(__file__), 'CSC510_DB.db')
+db_file = os.path.join(os.path.dirname(__file__), "CSC510_DB.db")
 
 # ---------------------- Helpers ----------------------
+
 
 def _money(x: float) -> float:
     """
@@ -37,6 +44,7 @@ def _money(x: float) -> float:
     except Exception:
         return 0.0
 
+
 def _cents_to_dollars(cents) -> float:
     """
     Convert an amount in cents to dollars with two-decimal precision.
@@ -50,6 +58,7 @@ def _cents_to_dollars(cents) -> float:
     except Exception:
         return 0.0
 
+
 def parse_generated_menu(gen_str):
     """
     Parse a serialized generated-menu string into a date-indexed structure.
@@ -62,16 +71,17 @@ def parse_generated_menu(gen_str):
         return {}
 
     # date, id, optional meal (1,2,3)
-    pairs = re.findall(r'\[\s*(\d{4}-\d{2}-\d{2})\s*,\s*([0-9]+)\s*(?:,\s*([123])\s*)?\]', gen_str)
+    pairs = re.findall(r"\[\s*(\d{4}-\d{2}-\d{2})\s*,\s*([0-9]+)\s*(?:,\s*([123])\s*)?\]", gen_str)
     out = {}
     for d, mid, meal in pairs:
         try:
             itm_id = int(mid)
             meal_i = int(meal) if meal else 3  # default to Dinner for legacy entries
-            out.setdefault(d, []).append({'itm_id': itm_id, 'meal': meal_i})
+            out.setdefault(d, []).append({"itm_id": itm_id, "meal": meal_i})
         except ValueError:
             continue
     return out
+
 
 def palette_for_item_ids(item_ids):
     """
@@ -82,15 +92,18 @@ def palette_for_item_ids(item_ids):
         dict: Mapping itm_id -> hex color string (e.g., '#a1b2c3').
     """
     import colorsys
+
     def hsl_to_hex(h, s, l):
-        r, g, b = colorsys.hls_to_rgb(h/360.0, l/100.0, s/100.0)
-        return '#%02x%02x%02x' % (int(r*255), int(g*255), int(b*255))
+        r, g, b = colorsys.hls_to_rgb(h / 360.0, l / 100.0, s / 100.0)
+        return "#%02x%02x%02x" % (int(r * 255), int(g * 255), int(b * 255))
+
     palette = {}
     for iid in item_ids:
         seed = (iid * 9301 + 49297) % 233280
         hue = seed % 360
         palette[iid] = hsl_to_hex(hue, 65, 52)
     return palette
+
 
 def fetch_menu_items_by_ids(ids):
     """
@@ -158,9 +171,10 @@ def build_calendar_cells(gen_map, year, month, items_by_id):
     Returns:
         list: A flat list of calendar cell dicts with day number and a 'meals' list.
     """
+
     def meal_sort_key(e):
         # Breakfast(1) first, then Lunch(2), then Dinner(3)
-        return e.get('meal', 3)
+        return e.get("meal", 3)
 
     palette = palette_for_item_ids(items_by_id.keys())
     cal = calendar.Calendar(firstweekday=6)  # Sunday start
@@ -177,14 +191,16 @@ def build_calendar_cells(gen_map, year, month, items_by_id):
 
             meals = []
             for e in entries:
-                itm = items_by_id.get(e['itm_id'])
+                itm = items_by_id.get(e["itm_id"])
                 if not itm:
                     continue
-                meals.append({
-                    "meal": e.get('meal', 3),
-                    "item": itm,
-                    "color": palette.get(itm['itm_id'], "#7aa2f7"),
-                })
+                meals.append(
+                    {
+                        "meal": e.get("meal", 3),
+                        "item": itm,
+                        "color": palette.get(itm["itm_id"], "#7aa2f7"),
+                    }
+                )
 
             cells.append({"day": d, "meals": meals})
 
@@ -193,9 +209,10 @@ def build_calendar_cells(gen_map, year, month, items_by_id):
 
 # ---------------------- Routes ----------------------
 
+
 # Home route (supports /<year>/<month> for nav)
-@app.route('/', defaults={'year': None, 'month': None})
-@app.route('/<int:year>/<int:month>')
+@app.route("/", defaults={"year": None, "month": None})
+@app.route("/<int:year>/<int:month>")
 def index(year, month):
     """
     Render the calendar home view for the current or specified month.
@@ -226,7 +243,7 @@ def index(year, month):
     gen_map = parse_generated_menu(gen_str)
 
     # All item ids referenced (for the whole plan)
-    all_item_ids = sorted({e['itm_id'] for entries in gen_map.values() for e in entries})
+    all_item_ids = sorted({e["itm_id"] for entries in gen_map.values() for e in entries})
     items_by_id = fetch_menu_items_by_ids(all_item_ids)
 
     # Build cells for the month
@@ -234,13 +251,13 @@ def index(year, month):
 
     # Build "today_menu" (Breakfast, Lunch, Dinner if present)
     today_iso = f"{today.year:04d}-{today.month:02d}-{today.day:02d}"
-    today_entries = sorted(gen_map.get(today_iso, []), key=lambda e: e.get('meal', 3))
+    today_entries = sorted(gen_map.get(today_iso, []), key=lambda e: e.get("meal", 3))
     today_menu = []
     for e in today_entries:
-        item = items_by_id.get(e['itm_id'])
+        item = items_by_id.get(e["itm_id"])
         if item:
             # expose 'meal' and the full item dict to the template
-            today_menu.append(type("TodayEntry", (), {"meal": e['meal'], "item": item}))
+            today_menu.append(type("TodayEntry", (), {"meal": e["meal"], "item": item}))
 
     # prev/next month nav (unchanged)
     cur = date(year, month, 15)
@@ -264,8 +281,9 @@ def index(year, month):
         today_menu=today_menu,
     )
 
+
 # Login route
-@app.route('/login', methods=['GET','POST'])
+@app.route("/login", methods=["GET", "POST"])
 def login():
     """
     Display the login form (GET) and authenticate user credentials (POST).
@@ -285,7 +303,7 @@ def login():
             close_connection(conn)
 
         if user and check_password_hash(user[5], password):
-            session["usr_id"] = user[0] 
+            session["usr_id"] = user[0]
             session["Fname"] = user[1]
             session["Lname"] = user[2]
             session["Username"] = user[1] + " " + user[2]
@@ -301,8 +319,9 @@ def login():
         return render_template("login.html", error="Invalid credentials")
     return render_template("login.html")
 
+
 # Logout route (single, no duplicates)
-@app.route('/logout')
+@app.route("/logout")
 def logout():
     """
     Clear the user session and redirect to the login page.
@@ -311,11 +330,23 @@ def logout():
     Returns:
         Response: Redirect to the login route.
     """
-    for k in ["Username","Fname","Lname","Email","Phone","Wallet","Preferences","Allergies","GeneratedMenu"]:
+    for k in [
+        "Username",
+        "Fname",
+        "Lname",
+        "Email",
+        "Phone",
+        "Wallet",
+        "Preferences",
+        "Allergies",
+        "GeneratedMenu",
+    ]:
         session.pop(k, None)
     return redirect(url_for("login"))
 
+
 # ---------------------- Restaurant Authentication ----------------------
+
 
 def restaurant_required(f):
     """
@@ -323,28 +354,32 @@ def restaurant_required(f):
     Redirects to restaurant login if not authenticated as a restaurant.
     Also adds cache-control headers to prevent browser caching.
     """
+
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not session.get('restaurant_mode') or not session.get('rtr_id'):
-            return redirect(url_for('restaurant_login'))
-        
+        if not session.get("restaurant_mode") or not session.get("rtr_id"):
+            return redirect(url_for("restaurant_login"))
+
         # Call the route function
         response = f(*args, **kwargs)
-        
+
         # If response is a string, convert to Response object
         if isinstance(response, str):
             from flask import make_response
+
             response = make_response(response)
-        
+
         # Add cache-control headers to prevent browser caching
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, private'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
-        
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, private"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+
         return response
+
     return decorated_function
 
-@app.route('/restaurant/login', methods=['GET', 'POST'])
+
+@app.route("/restaurant/login", methods=["GET", "POST"])
 def restaurant_login():
     """
     Restaurant owner login page and authentication handler.
@@ -353,34 +388,37 @@ def restaurant_login():
     Returns:
         Response: Renders restaurant login page or redirects to dashboard on success.
     """
-    if request.method == 'POST':
-        email = (request.form.get('email') or '').strip().lower()
-        password = request.form.get('password') or ''
-        
+    if request.method == "POST":
+        email = (request.form.get("email") or "").strip().lower()
+        password = request.form.get("password") or ""
+
         conn = create_connection(db_file)
         try:
-            restaurant = fetch_one(conn, 
-                'SELECT rtr_id, name, email, password_HS FROM Restaurant WHERE email = ?', 
-                (email,))
+            restaurant = fetch_one(
+                conn,
+                "SELECT rtr_id, name, email, password_HS FROM Restaurant WHERE email = ?",
+                (email,),
+            )
         finally:
             close_connection(conn)
-        
+
         if restaurant and check_password_hash(restaurant[3], password):
             # Set restaurant session
-            session['restaurant_mode'] = True
-            session['rtr_id'] = restaurant[0]
-            session['RestaurantName'] = restaurant[1]
-            session['RestaurantEmail'] = email
+            session["restaurant_mode"] = True
+            session["rtr_id"] = restaurant[0]
+            session["RestaurantName"] = restaurant[1]
+            session["RestaurantEmail"] = email
             session.permanent = True
             app.permanent_session_lifetime = timedelta(hours=8)  # Longer for restaurant staff
-            
-            return redirect(url_for('restaurant_dashboard'))
-        
-        return render_template('restaurant_login.html', error='Invalid credentials')
-    
-    return render_template('restaurant_login.html')
 
-@app.route('/restaurant/logout')
+            return redirect(url_for("restaurant_dashboard"))
+
+        return render_template("restaurant_login.html", error="Invalid credentials")
+
+    return render_template("restaurant_login.html")
+
+
+@app.route("/restaurant/logout")
 def restaurant_logout():
     """
     Clear restaurant session and redirect to restaurant login.
@@ -389,13 +427,14 @@ def restaurant_logout():
     Returns:
         Response: Redirect to restaurant login page.
     """
-    session.pop('restaurant_mode', None)
-    session.pop('rtr_id', None)
-    session.pop('RestaurantName', None)
-    session.pop('RestaurantEmail', None)
-    return redirect(url_for('restaurant_login'))
+    session.pop("restaurant_mode", None)
+    session.pop("rtr_id", None)
+    session.pop("RestaurantName", None)
+    session.pop("RestaurantEmail", None)
+    return redirect(url_for("restaurant_login"))
 
-@app.route('/restaurant/dashboard')
+
+@app.route("/restaurant/dashboard")
 @restaurant_required
 def restaurant_dashboard():
     """
@@ -405,15 +444,18 @@ def restaurant_dashboard():
     Returns:
         Response: Renders restaurant dashboard with orders.
     """
-    restaurant_name = session.get('RestaurantName', 'Restaurant')
-    restaurant_email = session.get('RestaurantEmail', '')
-    
-    return render_template('restaurant_dashboard.html',
-                         restaurant_name=restaurant_name,
-                         restaurant_email=restaurant_email)
+    restaurant_name = session.get("RestaurantName", "Restaurant")
+    restaurant_email = session.get("RestaurantEmail", "")
+
+    return render_template(
+        "restaurant_dashboard.html",
+        restaurant_name=restaurant_name,
+        restaurant_email=restaurant_email,
+    )
+
 
 # Registration route
-@app.route('/register', methods=['GET', 'POST'])
+@app.route("/register", methods=["GET", "POST"])
 def register():
     """
     Display the registration form (GET) and create a new user (POST).
@@ -422,35 +464,35 @@ def register():
     Returns:
         Response: Renders registration page or redirects to login on success.
     """
-    if request.method == 'POST':
-        fname = (request.form.get('fname') or '').strip()
-        lname = (request.form.get('lname') or '').strip()
-        email = (request.form.get('email') or '').strip().lower()
-        phone = (request.form.get('phone') or '').strip()
-        password = request.form.get('password') or ''
-        confirm_password = request.form.get('confirm_password') or ''
-        allergies = (request.form.get('allergies') or '').strip()
-        preferences = (request.form.get('preferences') or '').strip()
+    if request.method == "POST":
+        fname = (request.form.get("fname") or "").strip()
+        lname = (request.form.get("lname") or "").strip()
+        email = (request.form.get("email") or "").strip().lower()
+        phone = (request.form.get("phone") or "").strip()
+        password = request.form.get("password") or ""
+        confirm_password = request.form.get("confirm_password") or ""
+        allergies = (request.form.get("allergies") or "").strip()
+        preferences = (request.form.get("preferences") or "").strip()
 
         # Basic validations
         if not fname or not lname:
-            return render_template('register.html', error="First and last name are required")
+            return render_template("register.html", error="First and last name are required")
         if not email or not re.match(r"^[^@]+@[^@]+\.[^@]+$", email):
-            return render_template('register.html', error="Please enter a valid email address")
+            return render_template("register.html", error="Please enter a valid email address")
         if password != confirm_password:
-            return render_template('register.html', error="Passwords do not match")
+            return render_template("register.html", error="Passwords do not match")
         if len(password) < 6:
-            return render_template('register.html', error="Password must be at least 6 characters")
+            return render_template("register.html", error="Password must be at least 6 characters")
 
         digits_only = re.sub(r"\D+", "", phone)
         if len(digits_only) < 7:
-            return render_template('register.html', error="Please enter a valid phone number")
+            return render_template("register.html", error="Please enter a valid phone number")
 
         conn = create_connection(db_file)
         try:
             exists = fetch_one(conn, 'SELECT 1 FROM "User" WHERE email = ?', (email,))
             if exists:
-                return render_template('register.html', error="Email already registered")
+                return render_template("register.html", error="Email already registered")
 
             password_hashed = generate_password_hash(password)
 
@@ -463,19 +505,20 @@ def register():
                 VALUES
                     (?,          ?,         ?,     ?,     ?,           ?,      ?,            ?)
                 """,
-                (fname, lname, email, digits_only, password_hashed, 0, preferences, allergies)
+                (fname, lname, email, digits_only, password_hashed, 0, preferences, allergies),
             )
         except IntegrityError:
-            return render_template('register.html', error="Email already registered")
+            return render_template("register.html", error="Email already registered")
         finally:
             close_connection(conn)
 
-        return redirect(url_for('login'))
+        return redirect(url_for("login"))
 
-    return render_template('register.html')
+    return render_template("register.html")
+
 
 # Profile route
-@app.route('/profile')
+@app.route("/profile")
 def profile():
     """
     Show the logged-in user's profile, including recent orders.
@@ -485,13 +528,13 @@ def profile():
         Response: HTML profile page (requires login).
     """
     # Must be logged in
-    if session.get('Username') is None:
-        return redirect(url_for('login'))
+    if session.get("Username") is None:
+        return redirect(url_for("login"))
 
     # Load the full user row by session email
-    email = session.get('Email')
+    email = session.get("Email")
     if not email:
-        return redirect(url_for('logout'))
+        return redirect(url_for("logout"))
 
     import json
     from datetime import datetime
@@ -514,35 +557,39 @@ def profile():
 
     conn = create_connection(db_file)
     try:
-        row = fetch_one(conn, 'SELECT usr_id,first_name,last_name,email,phone,password_HS,wallet,preferences,allergies FROM "User" WHERE email = ?', (email,))
+        row = fetch_one(
+            conn,
+            'SELECT usr_id,first_name,last_name,email,phone,password_HS,wallet,preferences,allergies FROM "User" WHERE email = ?',
+            (email,),
+        )
         if not row:
-            return redirect(url_for('logout'))
+            return redirect(url_for("logout"))
 
         user = {
-            "usr_id":        row[0],
-            "first_name":    row[1],
-            "last_name":     row[2],
-            "email":         row[3],
-            "phone":         row[4],
-            "password_HS":   row[5],
-            "wallet":        (row[6] or 0) / 100.0,
-            "preferences":   row[7] or "",
-            "allergies":     row[8] or "",
+            "usr_id": row[0],
+            "first_name": row[1],
+            "last_name": row[2],
+            "email": row[3],
+            "phone": row[4],
+            "password_HS": row[5],
+            "wallet": (row[6] or 0) / 100.0,
+            "preferences": row[7] or "",
+            "allergies": row[8] or "",
         }
 
-        session['usr_id'] = user["usr_id"]
+        session["usr_id"] = user["usr_id"]
 
         # Pull orders for this user; details is JSON we will parse
         order_rows = fetch_all(
             conn,
-            '''
+            """
             SELECT o.ord_id, o.details, o.status, r.name
             FROM "Order" o
             JOIN "Restaurant" r ON o.rtr_id = r.rtr_id
             WHERE o.usr_id = ?
             ORDER BY o.ord_id DESC
-            ''',
-            (user["usr_id"],)
+            """,
+            (user["usr_id"],),
         )
 
         orders = []
@@ -554,34 +601,35 @@ def profile():
                     j = json.loads(details)
                     placed = _fmt_date(j.get("placed_at") or j.get("time"))
                     charges = j.get("charges") or {}
-                    total_val = charges.get("total") or charges.get("grand_total") or charges.get("amount")
+                    total_val = (
+                        charges.get("total") or charges.get("grand_total") or charges.get("amount")
+                    )
                     total = _fmt_total(total_val) if total_val is not None else ""
                 except Exception:
                     pass
 
-            orders.append({
-                "id": ord_id,
-                "date": placed,
-                "status": status or "",
-                "restaurant": r_name,
-                "total": total
-            })
+            orders.append(
+                {
+                    "id": ord_id,
+                    "date": placed,
+                    "status": status or "",
+                    "restaurant": r_name,
+                    "total": total,
+                }
+            )
     finally:
         close_connection(conn)
 
-    pw_updated = request.args.get('pw_updated')
-    pw_error   = request.args.get('pw_error')
+    pw_updated = request.args.get("pw_updated")
+    pw_error = request.args.get("pw_error")
 
     return render_template(
-        "profile.html",
-        user=user,
-        orders=orders,
-        pw_updated=pw_updated,
-        pw_error=pw_error
+        "profile.html", user=user, orders=orders, pw_updated=pw_updated, pw_error=pw_error
     )
 
+
 # Edit Profile route
-@app.route('/profile/edit', methods=['GET', 'POST'])
+@app.route("/profile/edit", methods=["GET", "POST"])
 def edit_profile():
     """
     Display and process the profile edit form (phone, preferences, allergies).
@@ -590,24 +638,28 @@ def edit_profile():
     Returns:
         Response: Renders form (GET) or updates and redirects to profile (POST).
     """
-    if session.get('Username') is None:
-        return redirect(url_for('login'))
+    if session.get("Username") is None:
+        return redirect(url_for("login"))
 
-    usr_id = session.get('usr_id')
+    usr_id = session.get("usr_id")
     if not usr_id:
-        return redirect(url_for('logout'))
+        return redirect(url_for("logout"))
 
     conn = create_connection(db_file)
     try:
-        row = fetch_one(conn, '''
+        row = fetch_one(
+            conn,
+            """
             SELECT usr_id, first_name, last_name, email, phone, wallet, preferences, allergies
             FROM "User" WHERE usr_id = ?
-        ''', (usr_id,))
+        """,
+            (usr_id,),
+        )
     finally:
         close_connection(conn)
 
     if not row:
-        return redirect(url_for('logout'))
+        return redirect(url_for("logout"))
 
     user = {
         "usr_id": row[0],
@@ -621,33 +673,38 @@ def edit_profile():
     }
 
     # For now just render an edit form (you can build edit_profile.html)
-    if request.method == 'POST':
+    if request.method == "POST":
         # You’ll expand this with update logic later
         # Example: update phone, preferences, allergies
-        new_phone = request.form.get('phone') or user['phone']
-        new_prefs = request.form.get('preferences') or user['preferences']
-        new_allergies = request.form.get('allergies') or user['allergies']
+        new_phone = request.form.get("phone") or user["phone"]
+        new_prefs = request.form.get("preferences") or user["preferences"]
+        new_allergies = request.form.get("allergies") or user["allergies"]
 
         conn = create_connection(db_file)
         try:
-            execute_query(conn, '''
+            execute_query(
+                conn,
+                """
                 UPDATE "User"
                 SET phone = ?, preferences = ?, allergies = ?
                 WHERE usr_id = ?
-            ''', (new_phone, new_prefs, new_allergies, usr_id))
+            """,
+                (new_phone, new_prefs, new_allergies, usr_id),
+            )
         finally:
             close_connection(conn)
 
         # Refresh session values
-        session['Phone'] = new_phone
-        session['Preferences'] = new_prefs
-        session['Allergies'] = new_allergies
+        session["Phone"] = new_phone
+        session["Preferences"] = new_prefs
+        session["Allergies"] = new_allergies
 
-        return redirect(url_for('profile'))
+        return redirect(url_for("profile"))
 
     return render_template("edit_profile.html", user=user)
 
-@app.route('/profile/change-password', methods=['POST'])
+
+@app.route("/profile/change-password", methods=["POST"])
 def change_password():
     """
     Change the current user's password after validating the current password.
@@ -657,64 +714,67 @@ def change_password():
         Response: Redirect back to profile with success or error flags.
     """
     # Must be logged in
-    if session.get('Username') is None:
-        return redirect(url_for('login'))
+    if session.get("Username") is None:
+        return redirect(url_for("login"))
 
-    usr_id = session.get('usr_id')
+    usr_id = session.get("usr_id")
     if not usr_id:
         # Fallback: resolve via email
-        email = session.get('Email')
+        email = session.get("Email")
         if not email:
-            return redirect(url_for('logout'))
+            return redirect(url_for("logout"))
         conn = create_connection(db_file)
         try:
             row = fetch_one(conn, 'SELECT usr_id FROM "User" WHERE email = ?', (email,))
             if not row:
-                return redirect(url_for('logout'))
+                return redirect(url_for("logout"))
             usr_id = row[0]
-            session['usr_id'] = usr_id
+            session["usr_id"] = usr_id
         finally:
             close_connection(conn)
 
     # Read form fields
-    current_password = (request.form.get('current_password') or '').strip()
-    new_password     = (request.form.get('new_password') or '').strip()
-    confirm_password = (request.form.get('confirm_password') or '').strip()
+    current_password = (request.form.get("current_password") or "").strip()
+    new_password = (request.form.get("new_password") or "").strip()
+    confirm_password = (request.form.get("confirm_password") or "").strip()
 
     # Basic validations (mirror your frontend behavior)
     if not current_password:
-        return redirect(url_for('profile', pw_error='missing_current'))
+        return redirect(url_for("profile", pw_error="missing_current"))
     if len(new_password) < 6:
-        return redirect(url_for('profile', pw_error='too_short'))
+        return redirect(url_for("profile", pw_error="too_short"))
     if new_password != confirm_password:
-        return redirect(url_for('profile', pw_error='mismatch'))
+        return redirect(url_for("profile", pw_error="mismatch"))
     if new_password == current_password:
-        return redirect(url_for('profile', pw_error='same_as_current'))
+        return redirect(url_for("profile", pw_error="same_as_current"))
 
     # Verify current hash & update to new hash
     conn = create_connection(db_file)
     try:
         row = fetch_one(conn, 'SELECT password_HS FROM "User" WHERE usr_id = ?', (usr_id,))
         if not row:
-            return redirect(url_for('logout'))
+            return redirect(url_for("logout"))
 
         stored_hash = row[0]
         if not check_password_hash(stored_hash, current_password):
             # wrong current password
-            return redirect(url_for('profile', pw_error='incorrect_current'))
+            return redirect(url_for("profile", pw_error="incorrect_current"))
 
         # All good → update
         new_hash = generate_password_hash(new_password)
-        execute_query(conn, 'UPDATE "User" SET password_HS = ? WHERE usr_id = ?', (new_hash, usr_id))
+        execute_query(
+            conn, 'UPDATE "User" SET password_HS = ? WHERE usr_id = ?', (new_hash, usr_id)
+        )
 
     finally:
         close_connection(conn)
 
     # Success
-    return redirect(url_for('profile', pw_updated=1))
+    return redirect(url_for("profile", pw_updated=1))
+
 
 # Order route (Calendar "Order" button target)
-@app.route('/order', methods=['GET', 'POST'])
+@app.route("/order", methods=["GET", "POST"])
 def order():
     """
     Place an order via JSON (POST) or handle legacy single-item GET flow.
@@ -732,7 +792,9 @@ def order():
     if not usr_id:
         conn = create_connection(db_file)
         try:
-            row = fetch_one(conn, 'SELECT usr_id FROM "User" WHERE email = ?', (session.get('Email'),))
+            row = fetch_one(
+                conn, 'SELECT usr_id FROM "User" WHERE email = ?', (session.get("Email"),)
+            )
             if not row:
                 return redirect(url_for("logout"))
             usr_id = row[0]
@@ -741,16 +803,16 @@ def order():
             close_connection(conn)
 
     # ---- POST JSON: place a single order containing ALL items in the restaurant group ----
-    if request.method == 'POST' and request.is_json:
+    if request.method == "POST" and request.is_json:
         payload = request.get_json(silent=True) or {}
         rtr_id = int(payload.get("restaurant_id") or 0)
-        items_in = payload.get("items") or []     # [{itm_id, qty, notes}]
+        items_in = payload.get("items") or []  # [{itm_id, qty, notes}]
         delivery_type = (payload.get("delivery_type") or "delivery").lower()
         if delivery_type not in ("delivery", "pickup"):
             delivery_type = "delivery"
         tip_dollars = _money(payload.get("tip") or 0)
         eta_minutes = int(payload.get("eta_minutes") or 40)
-        iso_date = (payload.get("date") or datetime.now().date().isoformat())
+        iso_date = payload.get("date") or datetime.now().date().isoformat()
         try:
             meal = int(payload.get("meal") or 3)
         except Exception:
@@ -767,12 +829,16 @@ def order():
         conn = create_connection(db_file)
         try:
             qmarks = ",".join(["?"] * len(itm_ids))
-            rows = fetch_all(conn, f'''
+            rows = fetch_all(
+                conn,
+                f"""
                 SELECT m.itm_id, m.rtr_id, m.name, m.price, r.name
                 FROM "MenuItem" m
                 JOIN "Restaurant" r ON r.rtr_id = m.rtr_id
                 WHERE m.itm_id IN ({qmarks})
-            ''', tuple(itm_ids))
+            """,
+                tuple(itm_ids),
+            )
         finally:
             close_connection(conn)
 
@@ -781,7 +847,15 @@ def order():
             return jsonify({"ok": False, "error": "items_not_found"}), 404
 
         # Map itm_id -> {price, name, rtr_id, rtr_name}
-        dbmap = {row[0]: {"rtr_id": row[1], "name": row[2], "price_cents": row[3] or 0, "restaurant_name": row[4]} for row in rows}
+        dbmap = {
+            row[0]: {
+                "rtr_id": row[1],
+                "name": row[2],
+                "price_cents": row[3] or 0,
+                "restaurant_name": row[4],
+            }
+            for row in rows
+        }
         for it in itm_ids:
             if it not in dbmap:
                 return jsonify({"ok": False, "error": f"item_{it}_not_found"}), 404
@@ -794,19 +868,22 @@ def order():
         for it in items_in:
             iid = int(it.get("itm_id"))
             qty = int(it.get("qty") or 1)
-            if qty <= 0: qty = 1
+            if qty <= 0:
+                qty = 1
             meta = dbmap[iid]
             unit_price = _cents_to_dollars(meta["price_cents"])
             line_total = _money(unit_price * qty)
             subtotal = _money(subtotal + line_total)
-            detail_items.append({
-                "itm_id": iid,
-                "name": meta["name"],
-                "qty": qty,
-                "unit_price": unit_price,
-                "line_total": line_total,
-                **({"notes": (it.get("notes") or "")} if it.get("notes") else {})
-            })
+            detail_items.append(
+                {
+                    "itm_id": iid,
+                    "name": meta["name"],
+                    "qty": qty,
+                    "unit_price": unit_price,
+                    "line_total": line_total,
+                    **({"notes": (it.get("notes") or "")} if it.get("notes") else {}),
+                }
+            )
 
         tax = _money(subtotal * 0.0725)
         delivery_fee = 3.99 if delivery_type == "delivery" else 0.00
@@ -825,22 +902,26 @@ def order():
                 "delivery_fee": delivery_fee,
                 "service_fee": service_fee,
                 "tip": tip_dollars,
-                "total": total
+                "total": total,
             },
             "delivery_type": delivery_type,
             "eta_minutes": int(eta_minutes),
             "date": iso_date,
-            "meal": meal
+            "meal": meal,
         }
 
         # Insert the single order row with status "Ordered"
         conn = create_connection(db_file)
         try:
-            execute_query(conn, '''
+            execute_query(
+                conn,
+                """
                 INSERT INTO "Order" (rtr_id, usr_id, details, status)
                 VALUES (?, ?, ?, ?)
-            ''', (rtr_id, usr_id, json.dumps(details), "Ordered"))
-            row = fetch_one(conn, 'SELECT last_insert_rowid()')
+            """,
+                (rtr_id, usr_id, json.dumps(details), "Ordered"),
+            )
+            row = fetch_one(conn, "SELECT last_insert_rowid()")
             new_ord_id = row[0] if row else None
         finally:
             close_connection(conn)
@@ -869,7 +950,7 @@ def order():
         eta_minutes = int(request.args.get("eta", "40"))
     except Exception:
         eta_minutes = 40
-    iso_date = (request.args.get("date") or datetime.now().date().isoformat())
+    iso_date = request.args.get("date") or datetime.now().date().isoformat()
     try:
         meal = int(request.args.get("meal", "3"))
     except Exception:
@@ -879,12 +960,16 @@ def order():
     # Look up item & restaurant strictly
     conn = create_connection(db_file)
     try:
-        mi = fetch_one(conn, '''
+        mi = fetch_one(
+            conn,
+            """
             SELECT m.itm_id, m.rtr_id, m.name, m.price, r.name
             FROM "MenuItem" m
             JOIN "Restaurant" r ON r.rtr_id = m.rtr_id
             WHERE m.itm_id = ?
-        ''', (itm_id,))
+        """,
+            (itm_id,),
+        )
     finally:
         close_connection(conn)
     if not mi:
@@ -902,43 +987,50 @@ def order():
     details = {
         "placed_at": datetime.now().astimezone().isoformat(),
         "restaurant_id": int(rtr_id),
-        "items": [{
-            "itm_id": int(item_id),
-            "name": item_name,
-            "qty": int(qty),
-            "unit_price": unit_price,
-            "line_total": line_total,
-            **({"notes": notes} if notes else {})
-        }],
+        "items": [
+            {
+                "itm_id": int(item_id),
+                "name": item_name,
+                "qty": int(qty),
+                "unit_price": unit_price,
+                "line_total": line_total,
+                **({"notes": notes} if notes else {}),
+            }
+        ],
         "charges": {
             "subtotal": line_total,
             "tax": tax,
             "delivery_fee": delivery_fee,
             "service_fee": service_fee,
             "tip": tip_dollars,
-            "total": total
+            "total": total,
         },
         "delivery_type": delivery_type,
         "eta_minutes": int(eta_minutes),
         "date": iso_date,
-        "meal": meal
+        "meal": meal,
     }
 
     conn = create_connection(db_file)
     try:
-        execute_query(conn, '''
+        execute_query(
+            conn,
+            """
             INSERT INTO "Order" (rtr_id, usr_id, details, status)
             VALUES (?, ?, ?, ?)
-        ''', (rtr_id, usr_id, json.dumps(details), "Ordered"))
-        row = fetch_one(conn, 'SELECT last_insert_rowid()')
+        """,
+            (rtr_id, usr_id, json.dumps(details), "Ordered"),
+        )
+        row = fetch_one(conn, "SELECT last_insert_rowid()")
         new_ord_id = row[0] if row else None
     finally:
         close_connection(conn)
 
     return redirect(url_for("profile") + (f"?ordered={new_ord_id}" if new_ord_id else ""))
 
+
 # Orders route
-@app.route('/orders')
+@app.route("/orders")
 def orders():
     """
     List restaurants and in-stock menu items for browsing.
@@ -947,18 +1039,23 @@ def orders():
     Returns:
         Response: HTML page showing restaurants and items (requires login).
     """
-    if session.get('Username') is None:
-        return redirect(url_for('login'))
+    if session.get("Username") is None:
+        return redirect(url_for("login"))
 
     conn = create_connection(db_file)
     try:
         # Pull address fields too
-        restaurants = fetch_all(conn, 'SELECT rtr_id, name, address, city, state, zip FROM "Restaurant"')
-        menu_items = fetch_all(conn, '''
+        restaurants = fetch_all(
+            conn, 'SELECT rtr_id, name, address, city, state, zip FROM "Restaurant"'
+        )
+        menu_items = fetch_all(
+            conn,
+            """
             SELECT itm_id, rtr_id, name, price, calories, allergens, description
             FROM "MenuItem"
             WHERE instock IS NULL OR instock = 1
-        ''')
+        """,
+        )
     finally:
         close_connection(conn)
 
@@ -984,30 +1081,37 @@ def orders():
                 parts.append(sp)
         return ", ".join(parts)
 
-    rest_list = [{
-        "rtr_id": r[0],
-        "name": r[1],
-        "address": r[2] or "",
-        "city": r[3] or "",
-        "state": r[4] or "",
-        "zip": r[5] if r[5] is not None else "",
-        "address_full": _addr(r[2], r[3], r[4], r[5]),
-    } for r in restaurants]
+    rest_list = [
+        {
+            "rtr_id": r[0],
+            "name": r[1],
+            "address": r[2] or "",
+            "city": r[3] or "",
+            "state": r[4] or "",
+            "zip": r[5] if r[5] is not None else "",
+            "address_full": _addr(r[2], r[3], r[4], r[5]),
+        }
+        for r in restaurants
+    ]
 
-    item_list = [{
-        "itm_id":      m[0],
-        "rtr_id":      m[1],
-        "name":        m[2],
-        "price_cents": m[3] or 0,
-        "calories":    m[4] or 0,
-        "allergens":   m[5] or "",
-        "description": m[6] or "",
-    } for m in menu_items]
+    item_list = [
+        {
+            "itm_id": m[0],
+            "rtr_id": m[1],
+            "name": m[2],
+            "price_cents": m[3] or 0,
+            "calories": m[4] or 0,
+            "allergens": m[5] or "",
+            "description": m[6] or "",
+        }
+        for m in menu_items
+    ]
 
     return render_template("orders.html", restaurants=rest_list, items=item_list)
 
+
 # Restaurants browse route
-@app.route('/restaurants')
+@app.route("/restaurants")
 def restaurants():
     """
     Browse restaurants with details and currently in-stock items.
@@ -1016,17 +1120,23 @@ def restaurants():
     Returns:
         Response: HTML page listing restaurants and their items (requires login).
     """
-    if session.get('Username') is None:
-        return redirect(url_for('login'))
+    if session.get("Username") is None:
+        return redirect(url_for("login"))
 
     conn = create_connection(db_file)
     try:
-        restaurants = fetch_all(conn, 'SELECT rtr_id, name, description, phone, email, address, city, state, zip, hours, status FROM "Restaurant"')
-        menu_items = fetch_all(conn, '''
+        restaurants = fetch_all(
+            conn,
+            'SELECT rtr_id, name, description, phone, email, address, city, state, zip, hours, status FROM "Restaurant"',
+        )
+        menu_items = fetch_all(
+            conn,
+            """
             SELECT itm_id, rtr_id, name, price, calories, allergens, description
             FROM "MenuItem"
             WHERE instock IS NULL OR instock = 1
-        ''')
+        """,
+        )
     finally:
         close_connection(conn)
 
@@ -1041,35 +1151,42 @@ def restaurants():
                 parts.append(sp)
         return ", ".join(parts)
 
-    rest_list = [{
-        "rtr_id": r[0],
-        "name": r[1],
-        "description": r[2] or "",
-        "phone": r[3] or "",
-        "email": r[4] or "",
-        "address": r[5] or "",
-        "city": r[6] or "",
-        "state": r[7] or "",
-        "zip": r[8] if r[8] is not None else "",
-        "hours": r[9] or "",
-        "status": r[10] or "",
-        "address_full": _addr(r[5], r[6], r[7], r[8]),
-    } for r in restaurants]
+    rest_list = [
+        {
+            "rtr_id": r[0],
+            "name": r[1],
+            "description": r[2] or "",
+            "phone": r[3] or "",
+            "email": r[4] or "",
+            "address": r[5] or "",
+            "city": r[6] or "",
+            "state": r[7] or "",
+            "zip": r[8] if r[8] is not None else "",
+            "hours": r[9] or "",
+            "status": r[10] or "",
+            "address_full": _addr(r[5], r[6], r[7], r[8]),
+        }
+        for r in restaurants
+    ]
 
-    item_list = [{
-        "itm_id":      m[0],
-        "rtr_id":      m[1],
-        "name":        m[2],
-        "price_cents": m[3] or 0,
-        "calories":    m[4] or 0,
-        "allergens":   m[5] or "",
-        "description": m[6] or "",
-    } for m in menu_items]
+    item_list = [
+        {
+            "itm_id": m[0],
+            "rtr_id": m[1],
+            "name": m[2],
+            "price_cents": m[3] or 0,
+            "calories": m[4] or 0,
+            "allergens": m[5] or "",
+            "description": m[6] or "",
+        }
+        for m in menu_items
+    ]
 
     return render_template("restaurants.html", restaurants=rest_list, items=item_list)
 
+
 # Order receipt PDF route
-@app.route('/orders/<int:ord_id>/receipt.pdf')
+@app.route("/orders/<int:ord_id>/receipt.pdf")
 def order_receipt(ord_id: int):
     """
     Stream a PDF receipt for an order owned by the logged-in user.
@@ -1079,8 +1196,8 @@ def order_receipt(ord_id: int):
         Response: PDF file download or an error status (404/403) if inaccessible.
     """
     # Must be logged in
-    if session.get('Username') is None:
-        return redirect(url_for('login'))
+    if session.get("Username") is None:
+        return redirect(url_for("login"))
 
     # Ensure the order belongs to the logged-in user
     conn = create_connection(db_file)
@@ -1088,12 +1205,14 @@ def order_receipt(ord_id: int):
         row = fetch_one(conn, 'SELECT usr_id FROM "Order" WHERE ord_id = ?', (ord_id,))
         if not row:
             abort(404)
-        if session.get('usr_id') and row[0] != session['usr_id']:
+        if session.get("usr_id") and row[0] != session["usr_id"]:
             abort(403)
         # If usr_id not in session (older sessions), compare via email
-        if not session.get('usr_id'):
+        if not session.get("usr_id"):
             # Resolve current user's usr_id by email
-            urow = fetch_one(conn, 'SELECT usr_id FROM "User" WHERE email = ?', (session.get('Email'),))
+            urow = fetch_one(
+                conn, 'SELECT usr_id FROM "User" WHERE email = ?', (session.get("Email"),)
+            )
             if not urow or urow[0] != row[0]:
                 abort(403)
 
@@ -1103,13 +1222,14 @@ def order_receipt(ord_id: int):
 
     return send_file(
         BytesIO(pdf_bytes),
-        mimetype='application/pdf',
+        mimetype="application/pdf",
         as_attachment=True,
-        download_name=f'order_{ord_id}_receipt.pdf'
+        download_name=f"order_{ord_id}_receipt.pdf",
     )
 
+
 # Database viewer route (uses helpers only)
-@app.route('/db')
+@app.route("/db")
 def db_view():
     """
     Display a simple, paginated database table viewer.
@@ -1118,16 +1238,16 @@ def db_view():
     Returns:
         Response: HTML page showing rows/columns for a selected table (requires login).
     """
-    if session.get('Username') is None:
-        return redirect(url_for('login'))
+    if session.get("Username") is None:
+        return redirect(url_for("login"))
 
-    allowed_tables = {'User', 'Restaurant', 'MenuItem', 'Order', 'Review'}
-    table = request.args.get('t', 'User')
+    allowed_tables = {"User", "Restaurant", "MenuItem", "Order", "Review"}
+    table = request.args.get("t", "User")
     if table not in allowed_tables:
-        table = 'User'
+        table = "User"
 
     try:
-        page = int(request.args.get('page', 1))
+        page = int(request.args.get("page", 1))
     except ValueError:
         page = 1
     page = max(page, 1)
@@ -1153,7 +1273,7 @@ def db_view():
     end = min(offset + per_page, total)
 
     return render_template(
-        'db_view.html',
+        "db_view.html",
         table=table,
         allowed=sorted(allowed_tables),
         columns=columns,
@@ -1165,13 +1285,17 @@ def db_view():
         end=end,
     )
 
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Flask App for Meal Planner")
-    parser.add_argument('--host', type=str, default='127.0.0.1', help='Host to run the Flask app on')
-    parser.add_argument('--port', type=int, default=5000, help='Port to run the Flask app on')
+    parser.add_argument(
+        "--host", type=str, default="127.0.0.1", help="Host to run the Flask app on"
+    )
+    parser.add_argument("--port", type=int, default=5000, help="Port to run the Flask app on")
     return parser.parse_args()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     """
     DB column names:
 

@@ -4,22 +4,28 @@ import pytest
 import proj2.llm_toolkit as llm_toolkit
 import proj2.menu_generation as menu_generation
 
-test_generator = llm_toolkit.LLM(tokens = 100)
+test_generator = llm_toolkit.LLM(tokens=100)
+
 
 def test_llm():
     output = test_generator.generate("This is a test", "test")
     match = r"<\|start_of_role\|>assistant<\|end_of_role\|>(.*)<\|end_of_text\|>"
-    assert re.search(match, output).group(1) is not None, "Unable to get LLM output from llm_toolkit"
+    assert (
+        re.search(match, output).group(1) is not None
+    ), "Unable to get LLM output from llm_toolkit"
     try:
         re.search(match, output).group(2)
         assert False
     except Exception:
         assert True
 
+
 def test_prompt():
     prompt = menu_generation.PROMPT_TEMPLATE
     prompt = prompt.replace("{preferences}", "high protein, low carb")
-    prompt = prompt.replace("{context}", '''item_id,name,description,price,calories
+    prompt = prompt.replace(
+        "{context}",
+        """item_id,name,description,price,calories
 262,Kimchi Fried Rice,Fried rice with kimchi, vegetables, and a fried egg.,1400,650
 110,Chicken Pot Pie,Flaky crust filled with chicken, vegetables, and a creamy sauce.,1600,700
 235,Crispy Brussels Sprouts,Crispy Brussels sprouts with balsamic glaze and parmesan cheese.,1200,450
@@ -29,11 +35,14 @@ def test_prompt():
 252,Fried Green Tomatoes,Fried green tomatoes with remoulade sauce.,1000,350
 175,Arancini,Fried risotto balls filled with mozzarella and meat ragu.,800,400
 70,Potato Salad,Classic potato salad with mayonnaise, mustard, and celery.,600,350
-195,Seasonal Fruit Tart,Pastry tart filled with seasonal fruit and pastry cream.,1200,400''')
+195,Seasonal Fruit Tart,Pastry tart filled with seasonal fruit and pastry cream.,1200,400""",
+    )
     prompt = prompt.replace("{meal}", "dinner")
     output = test_generator.generate(menu_generation.SYSTEM_TEMPLATE, prompt)
     match = r"<\|start_of_role\|>assistant<\|end_of_role\|>(\d+)<\|end_of_text\|>"
-    assert int(re.search(match, output).group(1)) is not None, "Direct Menu Generation Prompting Failed"
+    assert (
+        int(re.search(match, output).group(1)) is not None
+    ), "Direct Menu Generation Prompting Failed"
     try:
         re.search(match, output).group(2)
         assert False

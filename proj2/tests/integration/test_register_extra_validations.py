@@ -1,5 +1,6 @@
 import re
 
+
 def test_register_requires_first_and_last_name(client):
     resp = client.post(
         "/register",
