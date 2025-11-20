@@ -72,6 +72,24 @@
                     <a class="function" href="#restaurant_dashboard">restaurant_dashboard</a>
             </li>
             <li>
+                    <a class="function" href="#restaurant_orders">restaurant_orders</a>
+            </li>
+            <li>
+                    <a class="function" href="#restaurant_accept_order">restaurant_accept_order</a>
+            </li>
+            <li>
+                    <a class="function" href="#restaurant_reject_order">restaurant_reject_order</a>
+            </li>
+            <li>
+                    <a class="function" href="#restaurant_prepare_order">restaurant_prepare_order</a>
+            </li>
+            <li>
+                    <a class="function" href="#restaurant_ready_order">restaurant_ready_order</a>
+            </li>
+            <li>
+                    <a class="function" href="#restaurant_deliver_order">restaurant_deliver_order</a>
+            </li>
+            <li>
                     <a class="function" href="#register">register</a>
             </li>
             <li>
@@ -357,11 +375,117 @@ Returns:
     </div>
     <a class="headerlink" href="#restaurant_dashboard"></a>
     
-            <div class="docstring"><p>Main dashboard showing all orders for the restaurant, grouped by status.
+            <div class="docstring"><p>Main dashboard landing page with module cards.
 Args:
     None
 Returns:
-    Response: Renders restaurant dashboard with orders.</p>
+    Response: Renders restaurant dashboard home with quick stats.</p>
+</div>
+
+
+                </section>
+                <section id="restaurant_orders">
+                    <div class="attr function">
+                    <div class="decorator">@app.route(&#39;/restaurant/orders&#39;)</div>
+        <div class="decorator">@restaurant_required</div>
+
+        <span class="def">def</span>
+        <span class="name">restaurant_orders</span><span class="signature pdoc-code condensed">(<span class="return-annotation">):</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#restaurant_orders"></a>
+    
+            <div class="docstring"><p>Order management page showing all orders for the restaurant, grouped by status.
+Args:
+    None
+Returns:
+    Response: Renders restaurant orders page with all orders.</p>
+</div>
+
+
+                </section>
+                <section id="restaurant_accept_order">
+                    <div class="attr function">
+                    <div class="decorator">@app.route(&#39;/restaurant/orders/&lt;int:ord_id&gt;/accept&#39;, methods=[&#39;POST&#39;])</div>
+        <div class="decorator">@restaurant_required</div>
+
+        <span class="def">def</span>
+        <span class="name">restaurant_accept_order</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">ord_id</span></span><span class="return-annotation">):</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#restaurant_accept_order"></a>
+    
+            <div class="docstring"><p>Accept a pending order (Ordered → Accepted).</p>
+</div>
+
+
+                </section>
+                <section id="restaurant_reject_order">
+                    <div class="attr function">
+                    <div class="decorator">@app.route(&#39;/restaurant/orders/&lt;int:ord_id&gt;/reject&#39;, methods=[&#39;POST&#39;])</div>
+        <div class="decorator">@restaurant_required</div>
+
+        <span class="def">def</span>
+        <span class="name">restaurant_reject_order</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">ord_id</span></span><span class="return-annotation">):</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#restaurant_reject_order"></a>
+    
+            <div class="docstring"><p>Reject a pending order (Ordered → Cancelled).</p>
+</div>
+
+
+                </section>
+                <section id="restaurant_prepare_order">
+                    <div class="attr function">
+                    <div class="decorator">@app.route(&#39;/restaurant/orders/&lt;int:ord_id&gt;/prepare&#39;, methods=[&#39;POST&#39;])</div>
+        <div class="decorator">@restaurant_required</div>
+
+        <span class="def">def</span>
+        <span class="name">restaurant_prepare_order</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">ord_id</span></span><span class="return-annotation">):</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#restaurant_prepare_order"></a>
+    
+            <div class="docstring"><p>Mark order as being prepared (Accepted → Preparing).</p>
+</div>
+
+
+                </section>
+                <section id="restaurant_ready_order">
+                    <div class="attr function">
+                    <div class="decorator">@app.route(&#39;/restaurant/orders/&lt;int:ord_id&gt;/ready&#39;, methods=[&#39;POST&#39;])</div>
+        <div class="decorator">@restaurant_required</div>
+
+        <span class="def">def</span>
+        <span class="name">restaurant_ready_order</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">ord_id</span></span><span class="return-annotation">):</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#restaurant_ready_order"></a>
+    
+            <div class="docstring"><p>Mark order as ready for pickup/delivery (Preparing → Ready).</p>
+</div>
+
+
+                </section>
+                <section id="restaurant_deliver_order">
+                    <div class="attr function">
+                    <div class="decorator">@app.route(&#39;/restaurant/orders/&lt;int:ord_id&gt;/deliver&#39;, methods=[&#39;POST&#39;])</div>
+        <div class="decorator">@restaurant_required</div>
+
+        <span class="def">def</span>
+        <span class="name">restaurant_deliver_order</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">ord_id</span></span><span class="return-annotation">):</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#restaurant_deliver_order"></a>
+    
+            <div class="docstring"><p>Mark order as delivered/completed (Ready → Delivered).</p>
 </div>
 
 
