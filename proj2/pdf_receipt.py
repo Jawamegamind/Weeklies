@@ -120,9 +120,28 @@ def generate_order_receipt_pdf(db_file: str, ord_id: int) -> bytes:
         # Header
         c.setFont("Helvetica-Bold", 16)
         c.drawString(margin, y, f"Receipt · Order #{ord_id}")
-        c.setFont("Helvetica", 10)
+        
+        # Status badge with color coding
+        c.setFont("Helvetica-Bold", 11)
+        status_str = _safe_str(status).upper()
+        
+        # Set color based on status
+        if status_str == "CANCELLED":
+            c.setFillColor(colors.red)
+        elif status_str == "DELIVERED":
+            c.setFillColor(colors.green)
+        elif status_str in ["PREPARING", "READY"]:
+            c.setFillColor(colors.orange)
+        elif status_str == "ACCEPTED":
+            c.setFillColor(colors.blue)
+        else:
+            c.setFillColor(colors.grey)
+        
+        c.drawString(margin, y - 14, f"Status: {status_str}")
+        
+        # Placed date
         c.setFillColor(colors.grey)
-        c.drawString(margin, y - 14, f"Status: {_safe_str(status)}")
+        c.setFont("Helvetica", 10)
         c.drawRightString(width - margin, y - 14, f"Placed: {placed_at}")
         c.setFillColor(colors.black)
         y -= 30
@@ -146,6 +165,21 @@ def generate_order_receipt_pdf(db_file: str, ord_id: int) -> bytes:
         c.drawRightString(width - margin, y - 56, f"Phone: {_safe_str(r_phone)}")
 
         y -= 78
+
+        # Add prominent notice for cancelled orders
+        if status_str == "CANCELLED":
+            # Draw a red box with cancellation notice
+            c.setStrokeColor(colors.red)
+            c.setFillColor(colors.Color(1, 0.95, 0.95))  # Light red background
+            c.rect(margin, y - 40, width - 2 * margin, 35, stroke=1, fill=1)
+            
+            c.setFillColor(colors.red)
+            c.setFont("Helvetica-Bold", 12)
+            c.drawCentredString(width / 2, y - 15, "⚠ ORDER CANCELLED ⚠")
+            c.setFont("Helvetica", 10)
+            c.drawCentredString(width / 2, y - 30, "This order was cancelled by the restaurant")
+            c.setFillColor(colors.black)
+            y -= 55
 
         # Divider
         c.setStrokeColor(colors.lightgrey)

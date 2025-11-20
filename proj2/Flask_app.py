@@ -409,7 +409,7 @@ def restaurant_login():
             session["RestaurantName"] = restaurant[1]
             session["RestaurantEmail"] = email
             session.permanent = True
-            app.permanent_session_lifetime = timedelta(hours=8)  # Longer for restaurant staff
+            app.permanent_session_lifetime = timedelta(minutes=30)
 
             return redirect(url_for("restaurant_dashboard"))
 
@@ -438,20 +438,316 @@ def restaurant_logout():
 @restaurant_required
 def restaurant_dashboard():
     """
-    Main dashboard showing all orders for the restaurant, grouped by status.
+    Main dashboard landing page with module cards.
     Args:
         None
     Returns:
-        Response: Renders restaurant dashboard with orders.
+        Response: Renders restaurant dashboard home with quick stats.
     """
+    rtr_id = session.get("rtr_id")
     restaurant_name = session.get("RestaurantName", "Restaurant")
     restaurant_email = session.get("RestaurantEmail", "")
 
+    # Get quick stats for dashboard cards
+    conn = create_connection(db_file)
+    try:
+        orders = fetch_all(
+            conn,
+            """
+            SELECT status FROM "Order"
+            WHERE rtr_id = ?
+        """,
+            (rtr_id,),
+        )
+    finally:
+        close_connection(conn)
+
+    # Calculate status counts for badge
+    status_counts = {
+        "Ordered": 0,
+        "Accepted": 0,
+        "Preparing": 0,
+        "Ready": 0,
+        "Delivered": 0,
+        "Cancelled": 0,
+    }
+    
+    for (status,) in orders:
+        if status in status_counts:
+            status_counts[status] += 1
+
     return render_template(
-        "restaurant_dashboard.html",
+        "restaurant_dashboard_home.html",
         restaurant_name=restaurant_name,
         restaurant_email=restaurant_email,
+        status_counts=status_counts,
     )
+
+
+@app.route("/restaurant/orders")
+@restaurant_required
+def restaurant_orders():
+    """
+    Order management page showing all orders for the restaurant, grouped by status.
+    Args:
+        None
+    Returns:
+        Response: Renders restaurant orders page with all orders.
+    """
+    rtr_id = session.get("rtr_id")
+    restaurant_name = session.get("RestaurantName", "Restaurant")
+    restaurant_email = session.get("RestaurantEmail", "")
+
+    conn = create_connection(db_file)
+    try:
+        # Get all orders for this restaurant
+        orders = fetch_all(
+            conn,
+            """
+            SELECT o.ord_id, o.usr_id, o.details, o.status, 
+                   u.first_name, u.last_name, u.email, u.phone
+            FROM "Order" o
+            JOIN "User" u ON o.usr_id = u.usr_id
+            WHERE o.rtr_id = ?
+            ORDER BY o.ord_id DESC
+        """,
+            (rtr_id,),
+        )
+    finally:
+        close_connection(conn)
+
+    # Group orders by status
+    orders_by_status = {
+        "Ordered": [],
+        "Accepted": [],
+        "Preparing": [],
+        "Ready": [],
+        "Delivered": [],
+        "Cancelled": [],
+    }
+
+    for order in orders:
+        ord_id, usr_id, details_json, status, fname, lname, email, phone = order
+
+        # Parse JSON details
+        try:
+            details = json.loads(details_json)
+        except:
+            details = {}
+
+        order_obj = {
+            "ord_id": ord_id,
+            "usr_id": usr_id,
+            "status": status,
+            "customer_name": f"{fname} {lname}",
+            "customer_email": email,
+            "customer_phone": phone,
+            "placed_at": details.get("placed_at", ""),
+            "items": details.get("items", []),
+            "charges": details.get("charges", {}),
+            "delivery_type": details.get("delivery_type", "delivery"),
+            "eta_minutes": details.get("eta_minutes", 40),
+            "date": details.get("date", ""),
+            "meal": details.get("meal", 3),
+            "notes": details.get("notes", ""),
+        }
+
+        if status in orders_by_status:
+            orders_by_status[status].append(order_obj)
+        else:
+            orders_by_status.setdefault("Other", []).append(order_obj)
+
+    return render_template(
+        "restaurant_orders.html",
+        restaurant_name=restaurant_name,
+        restaurant_email=restaurant_email,
+        orders_by_status=orders_by_status,
+        status_counts={k: len(v) for k, v in orders_by_status.items()},
+    )
+
+
+# ---------------------- Restaurant Order Management Routes ----------------------
+
+
+@app.route("/restaurant/orders/<int:ord_id>/accept", methods=["POST"])
+@restaurant_required
+def restaurant_accept_order(ord_id):
+    """
+    Accept a pending order (Ordered → Accepted).
+    """
+    rtr_id = session.get("rtr_id")
+
+    conn = create_connection(db_file)
+    try:
+        # Verify order belongs to this restaurant and is in 'Ordered' status
+        order = fetch_one(
+            conn, 'SELECT ord_id, rtr_id, status FROM "Order" WHERE ord_id = ?', (ord_id,)
+        )
+
+        if not order:
+            abort(404)
+
+        if order[1] != rtr_id:
+            abort(403)  # Not this restaurant's order
+
+        if order[2] != "Ordered":
+            return (
+                jsonify({"ok": False, "error": "Order not in pending state"}),
+                400,
+            )
+
+        # Update status
+        execute_query(
+            conn, 'UPDATE "Order" SET status = ? WHERE ord_id = ?', ("Accepted", ord_id)
+        )
+    finally:
+        close_connection(conn)
+
+    # Return JSON for AJAX or redirect for full page
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "new_status": "Accepted"})
+    else:
+        return redirect(url_for("restaurant_orders"))
+
+
+@app.route("/restaurant/orders/<int:ord_id>/reject", methods=["POST"])
+@restaurant_required
+def restaurant_reject_order(ord_id):
+    """
+    Reject a pending order (Ordered → Cancelled).
+    """
+    rtr_id = session.get("rtr_id")
+
+    conn = create_connection(db_file)
+    try:
+        order = fetch_one(
+            conn, 'SELECT ord_id, rtr_id, status FROM "Order" WHERE ord_id = ?', (ord_id,)
+        )
+
+        if not order or order[1] != rtr_id:
+            abort(403)
+
+        if order[2] not in ["Ordered", "Accepted", "Preparing"]:
+            return (
+                jsonify({"ok": False, "error": "Cannot cancel at this stage"}),
+                400,
+            )
+
+        execute_query(
+            conn, 'UPDATE "Order" SET status = ? WHERE ord_id = ?', ("Cancelled", ord_id)
+        )
+    finally:
+        close_connection(conn)
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "new_status": "Cancelled"})
+    else:
+        return redirect(url_for("restaurant_orders"))
+
+
+@app.route("/restaurant/orders/<int:ord_id>/prepare", methods=["POST"])
+@restaurant_required
+def restaurant_prepare_order(ord_id):
+    """
+    Mark order as being prepared (Accepted → Preparing).
+    """
+    rtr_id = session.get("rtr_id")
+
+    conn = create_connection(db_file)
+    try:
+        order = fetch_one(
+            conn, 'SELECT ord_id, rtr_id, status FROM "Order" WHERE ord_id = ?', (ord_id,)
+        )
+
+        if not order or order[1] != rtr_id:
+            abort(403)
+
+        if order[2] != "Accepted":
+            return (
+                jsonify({"ok": False, "error": "Order must be accepted first"}),
+                400,
+            )
+
+        execute_query(
+            conn, 'UPDATE "Order" SET status = ? WHERE ord_id = ?', ("Preparing", ord_id)
+        )
+    finally:
+        close_connection(conn)
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "new_status": "Preparing"})
+    else:
+        return redirect(url_for("restaurant_orders"))
+
+
+@app.route("/restaurant/orders/<int:ord_id>/ready", methods=["POST"])
+@restaurant_required
+def restaurant_ready_order(ord_id):
+    """
+    Mark order as ready for pickup/delivery (Preparing → Ready).
+    """
+    rtr_id = session.get("rtr_id")
+
+    conn = create_connection(db_file)
+    try:
+        order = fetch_one(
+            conn, 'SELECT ord_id, rtr_id, status FROM "Order" WHERE ord_id = ?', (ord_id,)
+        )
+
+        if not order or order[1] != rtr_id:
+            abort(403)
+
+        if order[2] != "Preparing":
+            return (
+                jsonify({"ok": False, "error": "Order must be preparing first"}),
+                400,
+            )
+
+        execute_query(
+            conn, 'UPDATE "Order" SET status = ? WHERE ord_id = ?', ("Ready", ord_id)
+        )
+    finally:
+        close_connection(conn)
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "new_status": "Ready"})
+    else:
+        return redirect(url_for("restaurant_orders"))
+
+
+@app.route("/restaurant/orders/<int:ord_id>/deliver", methods=["POST"])
+@restaurant_required
+def restaurant_deliver_order(ord_id):
+    """
+    Mark order as delivered/completed (Ready → Delivered).
+    """
+    rtr_id = session.get("rtr_id")
+
+    conn = create_connection(db_file)
+    try:
+        order = fetch_one(
+            conn, 'SELECT ord_id, rtr_id, status FROM "Order" WHERE ord_id = ?', (ord_id,)
+        )
+
+        if not order or order[1] != rtr_id:
+            abort(403)
+
+        if order[2] != "Ready":
+            return (
+                jsonify({"ok": False, "error": "Order must be ready first"}),
+                400,
+            )
+
+        execute_query(
+            conn, 'UPDATE "Order" SET status = ? WHERE ord_id = ?', ("Delivered", ord_id)
+        )
+    finally:
+        close_connection(conn)
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "new_status": "Delivered"})
+    else:
+        return redirect(url_for("restaurant_orders"))
 
 
 # Registration route

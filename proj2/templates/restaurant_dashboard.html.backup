@@ -184,12 +184,6 @@
       gap: 0.5rem;
       margin-top: 1rem;
       flex-wrap: wrap;
-      align-items: center;
-    }
-
-    .order-actions form {
-      margin: 0;
-      display: inline-block;
     }
 
     .btn-action {
@@ -200,7 +194,6 @@
       font-size: 0.875rem;
       font-weight: 500;
       transition: opacity 0.2s;
-      white-space: nowrap;
     }
 
     .btn-action:hover {
@@ -307,7 +300,7 @@
         </div>
         
         <div class="order-items">
-          {% for item in order["items"] %}
+          {% for item in order.items %}
           <div class="item-row">
             <span>{{ item.qty }}× {{ item.name }}</span>
             <span>${{ "%.2f"|format(item.line_total) }}</span>
@@ -316,22 +309,22 @@
           <hr style="margin: 0.5rem 0; border: 0; border-top: 1px solid var(--border);">
           <div class="item-row" style="font-weight: 600;">
             <span>Total</span>
-            <span>${{ "%.2f"|format(order["charges"]["total"]) }}</span>
+            <span>${{ "%.2f"|format(order.charges.total) }}</span>
           </div>
         </div>
         
-        {% if order["notes"] %}
+        {% if order.notes %}
         <div style="padding: 0.75rem; background: var(--hint); border-radius: var(--radius-xs); margin-top: 1rem; font-size: 0.875rem;">
-          <strong>Notes:</strong> {{ order["notes"] }}
+          <strong>Notes:</strong> {{ order.notes }}
         </div>
         {% endif %}
         
         <div class="order-actions">
-          <form method="POST" action="{{ url_for('restaurant_accept_order', ord_id=order.ord_id) }}">
+          <form method="POST" action="{{ url_for('restaurant_accept_order', ord_id=order.ord_id) }}" style="display: inline;">
             <button type="submit" class="btn-action btn-accept">✓ Accept Order</button>
           </form>
           <form method="POST" action="{{ url_for('restaurant_reject_order', ord_id=order.ord_id) }}" 
-                
+                style="display: inline;" 
                 onsubmit="return confirm('Are you sure you want to reject this order?');">
             <button type="submit" class="btn-action btn-reject">✗ Reject</button>
           </form>
@@ -363,7 +356,7 @@
         </div>
         
         <div class="order-items">
-          {% for item in order["items"] %}
+          {% for item in order.items %}
           <div class="item-row">
             <span>{{ item.qty }}× {{ item.name }}</span>
             <span>${{ "%.2f"|format(item.line_total) }}</span>
@@ -372,16 +365,16 @@
           <hr style="margin: 0.5rem 0; border: 0; border-top: 1px solid var(--border);">
           <div class="item-row" style="font-weight: 600;">
             <span>Total</span>
-            <span>${{ "%.2f"|format(order["charges"]["total"]) }}</span>
+            <span>${{ "%.2f"|format(order.charges.total) }}</span>
           </div>
         </div>
         
         <div class="order-actions">
-          <form method="POST" action="{{ url_for('restaurant_prepare_order', ord_id=order.ord_id) }}">
+          <form method="POST" action="{{ url_for('restaurant_prepare_order', ord_id=order.ord_id) }}" style="display: inline;">
             <button type="submit" class="btn-action btn-preparing">👨‍🍳 Start Preparing</button>
           </form>
           <form method="POST" action="{{ url_for('restaurant_reject_order', ord_id=order.ord_id) }}" 
-                
+                style="display: inline;" 
                 onsubmit="return confirm('Cancel this order?');">
             <button type="submit" class="btn-action btn-reject">Cancel</button>
           </form>
@@ -412,7 +405,7 @@
         </div>
         
         <div class="order-items">
-          {% for item in order["items"] %}
+          {% for item in order.items %}
           <div class="item-row">
             <span>{{ item.qty }}× {{ item.name }}</span>
           </div>
@@ -420,7 +413,7 @@
         </div>
         
         <div class="order-actions">
-          <form method="POST" action="{{ url_for('restaurant_ready_order', ord_id=order.ord_id) }}">
+          <form method="POST" action="{{ url_for('restaurant_ready_order', ord_id=order.ord_id) }}" style="display: inline;">
             <button type="submit" class="btn-action btn-ready">📦 Mark Ready</button>
           </form>
         </div>
@@ -450,7 +443,7 @@
         </div>
         
         <div class="order-items">
-          {% for item in order["items"] %}
+          {% for item in order.items %}
           <div class="item-row">
             <span>{{ item.qty }}× {{ item.name }}</span>
           </div>
@@ -458,7 +451,7 @@
         </div>
         
         <div class="order-actions">
-          <form method="POST" action="{{ url_for('restaurant_deliver_order', ord_id=order.ord_id) }}">
+          <form method="POST" action="{{ url_for('restaurant_deliver_order', ord_id=order.ord_id) }}" style="display: inline;">
             <button type="submit" class="btn-action btn-deliver">✓ Mark Delivered</button>
           </form>
         </div>
