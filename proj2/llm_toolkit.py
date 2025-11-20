@@ -2,6 +2,20 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import os
 import time
+import platform
+
+# Configure PyTorch for Windows stability
+if platform.system() == "Windows":
+    # Disable CUDA on Windows to avoid access violations
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+    # Set threading to single-threaded for CPU to avoid threading issues
+    torch.set_num_threads(1)
+    # Disable OpenMP to prevent multi-threading issues
+    os.environ["OMP_NUM_THREADS"] = "1"
+    os.environ["MKL_NUM_THREADS"] = "1"
+    os.environ["NUMEXPR_NUM_THREADS"] = "1"
+    # Disable torch compile optimization which can cause issues on Windows
+    os.environ["TORCH_COMPILE"] = "0"
 
 from proj2.sqlQueries import create_connection, close_connection, fetch_one, fetch_all, execute_query
 
@@ -12,7 +26,11 @@ class LLM:
     """
 
     ## LLM parameters - prioritize MPS (Apple Silicon) > CUDA > CPU
-    if torch.backends.mps.is_available():
+    ## Force CPU on Windows to avoid access violation issues with transformers library
+    _platform = platform.system()
+    if _platform == "Windows":
+        device = "cpu"
+    elif torch.backends.mps.is_available():
         device = "mps"
     elif torch.cuda.is_available():
         device = "cuda"
@@ -40,7 +58,7 @@ class LLM:
             # CUDA for NVIDIA GPUs
             self.model = AutoModelForCausalLM.from_pretrained(self.model, device_map="auto")
         else:
-            # CPU fallback
+            # CPU fallback (including Windows)
             self.model = AutoModelForCausalLM.from_pretrained(self.model, device_map=self.device)
         
         self.model.eval()
