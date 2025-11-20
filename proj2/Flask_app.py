@@ -707,63 +707,91 @@ def restaurant_analytics():
 
     conn = create_connection(db_file)
     try:
-        # Fetch all analytics snapshots for this restaurant (now includes fresh one)
-        snapshots = fetch_all(
+        # Get the latest snapshot for current metrics
+        latest_snapshot = fetch_one(
             conn,
             """
-            SELECT snapshot_date, total_orders, total_revenue_cents, 
-                   avg_order_value_cents, total_customers, order_completion_rate
+            SELECT total_orders, total_revenue_cents, avg_order_value_cents, 
+                   order_completion_rate
             FROM Analytics
             WHERE rtr_id = ?
-            ORDER BY snapshot_date DESC
+            ORDER BY analytics_id DESC
+            LIMIT 1
             """,
             (rtr_id,),
         )
 
-        # Calculate aggregated metrics from all snapshots
-        total_orders = sum(s[1] for s in snapshots) if snapshots else 0
-        total_revenue = sum(s[2] for s in snapshots) / 100.0 if snapshots else 0.0
-        avg_order_value = (total_revenue / total_orders) if total_orders > 0 else 0.0
-
-        # Prepare data for charts
-        if snapshots:
-            # Orders over time (last 30 days)
-            dates = [s[0] for s in snapshots[-30:]]
-            order_counts = [s[1] for s in snapshots[-30:]]
-
-            # Status distribution (using completion rate as a proxy)
-            status_labels = ["Completed", "Pending"]
-            completion_rate = snapshots[0][5] if snapshots else 0.0
-            status_counts = [
-                int(total_orders * (completion_rate / 100.0)),
-                int(total_orders * (1 - completion_rate / 100.0)),
-            ]
-
-            # Get top menu items
-            items = fetch_all(
-                conn,
-                """
-                SELECT m.name, COUNT(oi.oi_id) as count
-                FROM MenuItem m
-                LEFT JOIN OrderItems oi ON m.itm_id = oi.itm_id
-                LEFT JOIN "Orders" o ON oi.o_id = o.ord_id
-                WHERE m.rtr_id = ?
-                GROUP BY m.itm_id
-                ORDER BY count DESC
-                LIMIT 10
-                """,
-                (rtr_id,),
-            )
-
-            item_names = [item[0] for item in items] if items else []
-            item_counts = [item[1] for item in items] if items else []
+        if latest_snapshot:
+            total_orders, total_revenue_cents, avg_order_value_cents, completion_rate = latest_snapshot
+            total_revenue = total_revenue_cents / 100.0
+            avg_order_value = avg_order_value_cents / 100.0
         else:
-            dates = []
-            order_counts = []
-            status_labels = []
-            status_counts = []
-            item_names = []
-            item_counts = []
+            total_orders = 0
+            total_revenue = 0.0
+            avg_order_value = 0.0
+            completion_rate = 0.0
+
+        # Get order status distribution from actual orders
+        status_data = fetch_all(
+            conn,
+            """
+            SELECT status, COUNT(*) as count
+            FROM "Order"
+            WHERE rtr_id = ?
+            GROUP BY status
+            ORDER BY count DESC
+            """,
+            (rtr_id,),
+        )
+
+        status_labels = [s[0] for s in status_data] if status_data else []
+        status_counts = [s[1] for s in status_data] if status_data else []
+
+        # Get top menu items from order details JSON
+        # Since items are in JSON, we'll parse them and count
+        orders = fetch_all(
+            conn,
+            """
+            SELECT details FROM "Order"
+            WHERE rtr_id = ?
+            """,
+            (rtr_id,),
+        )
+
+        item_frequency = {}
+        for order_row in orders:
+            if order_row[0]:
+                try:
+                    details = json.loads(order_row[0]) if isinstance(order_row[0], str) else order_row[0]
+                    if "items" in details:
+                        for item in details["items"]:
+                            item_name = item.get("name", "Unknown")
+                            item_frequency[item_name] = item_frequency.get(item_name, 0) + item.get("qty", 1)
+                except (json.JSONDecodeError, TypeError, KeyError):
+                    continue
+
+        # Sort by frequency and get top 10
+        top_items = sorted(item_frequency.items(), key=lambda x: x[1], reverse=True)[:10]
+        item_names = [item[0] for item in top_items]
+        item_counts = [item[1] for item in top_items]
+
+        # Get historical data for time series chart (last 30 days)
+        snapshots = fetch_all(
+            conn,
+            """
+            SELECT snapshot_date, total_orders
+            FROM Analytics
+            WHERE rtr_id = ?
+            ORDER BY snapshot_date DESC
+            LIMIT 30
+            """,
+            (rtr_id,),
+        )
+        
+        # Reverse to show oldest to newest
+        snapshots = list(reversed(snapshots))
+        date_labels = [s[0] for s in snapshots]
+        date_counts = [s[1] for s in snapshots]
 
         return render_template(
             "restaurant_analytics.html",
@@ -771,8 +799,8 @@ def restaurant_analytics():
             total_orders=total_orders,
             total_revenue=total_revenue,
             avg_order_value=avg_order_value,
-            date_labels=dates,
-            date_counts=order_counts,
+            date_labels=date_labels,
+            date_counts=date_counts,
             status_labels=status_labels,
             status_counts=status_counts,
             item_names=item_names,
