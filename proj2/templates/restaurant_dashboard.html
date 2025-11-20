@@ -244,6 +244,31 @@
       font-size: 3rem;
       margin-bottom: 1rem;
     }
+
+    .dashboard-nav {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .nav-link {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+
+    .nav-link:hover {
+      background: rgba(255, 255, 255, 0.3);
+      text-decoration: none;
+    }
   </style>
 </head>
 <body>
@@ -254,7 +279,10 @@
           <h1>🍽️ {{ restaurant_name }}</h1>
           <p>{{ restaurant_email }}</p>
         </div>
-        <a href="{{ url_for('restaurant_logout') }}" class="logout-btn">Logout</a>
+        <div class="dashboard-nav">
+          <a href="{{ url_for('restaurant_analytics') }}" class="nav-link">📊 Analytics</a>
+          <a href="{{ url_for('restaurant_logout') }}" class="logout-btn">Logout</a>
+        </div>
       </div>
     </div>
   </div>
