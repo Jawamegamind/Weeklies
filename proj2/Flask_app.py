@@ -83,6 +83,127 @@ def parse_generated_menu(gen_str):
     return out
 
 
+def record_analytics_snapshot(rtr_id):
+    """
+    Record an analytics snapshot for a restaurant by calculating current order metrics.
+    
+    This function:
+    1. Queries all orders for the restaurant
+    2. Calculates total orders, revenue, average order value, and completion rate
+    3. Identifies the most popular menu item
+    4. Inserts a new snapshot record in the Analytics table
+    
+    Args:
+        rtr_id (int): The restaurant ID to record analytics for.
+    
+    Returns:
+        bool: True if snapshot was recorded successfully, False otherwise.
+    """
+    conn = create_connection(db_file)
+    if conn is None:
+        return False
+    
+    try:
+        # Get all orders for this restaurant
+        orders = fetch_all(
+            conn,
+            """
+            SELECT ord_id, status, details
+            FROM "Order"
+            WHERE rtr_id = ?
+            """,
+            (rtr_id,),
+        )
+        
+        if not orders:
+            # No orders yet, create a blank snapshot
+            total_orders = 0
+            total_revenue_cents = 0
+            avg_order_value_cents = 0
+            total_customers = 0
+            order_completion_rate = 0.0
+            most_popular_item_id = None
+        else:
+            total_orders = len(orders)
+            total_revenue_cents = 0
+            unique_customers = set()
+            completed_orders = 0
+            item_counts = {}
+            
+            # Process each order
+            for ord_id, status, details_json in orders:
+                # Track completion rate
+                if status and status.lower() in ['completed', 'delivered']:
+                    completed_orders += 1
+                
+                # Parse details JSON
+                try:
+                    if details_json:
+                        details = json.loads(details_json) if isinstance(details_json, str) else details_json
+                        
+                        # Extract revenue
+                        if "charges" in details and "total" in details["charges"]:
+                            total_cents = int(details["charges"]["total"] * 100)
+                            total_revenue_cents += total_cents
+                        
+                        # Track items for popularity
+                        if "items" in details:
+                            for item in details["items"]:
+                                itm_id = item.get("itm_id")
+                                if itm_id:
+                                    item_counts[itm_id] = item_counts.get(itm_id, 0) + 1
+                except (json.JSONDecodeError, TypeError, KeyError):
+                    continue
+                
+                # Note: We don't have usr_id in the Order table currently
+                # So we can't track unique_customers reliably
+                # This would need to be added to the Order schema if needed
+            
+            # Calculate metrics
+            avg_order_value_cents = total_revenue_cents // total_orders if total_orders > 0 else 0
+            total_customers = total_orders  # Use total orders as proxy since usr_id not available
+            order_completion_rate = (completed_orders / total_orders) if total_orders > 0 else 0.0
+            
+            # Find most popular item
+            most_popular_item_id = None
+            if item_counts:
+                most_popular_item_id = max(item_counts.items(), key=lambda x: x[1])[0]
+        
+        # Record the snapshot
+        snapshot_date = date.today().isoformat()
+        created_at = datetime.now().isoformat()
+        
+        execute_query(
+            conn,
+            """
+            INSERT INTO Analytics
+            (rtr_id, snapshot_date, total_orders, total_revenue_cents, avg_order_value_cents,
+             total_customers, most_popular_item_id, order_completion_rate, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                rtr_id,
+                snapshot_date,
+                total_orders,
+                total_revenue_cents,
+                avg_order_value_cents,
+                total_customers,
+                most_popular_item_id,
+                order_completion_rate,
+                created_at,
+            ),
+        )
+        
+        return True
+    except Exception as e:
+        print(f"Error recording analytics snapshot: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+    finally:
+        close_connection(conn)
+
+
 def palette_for_item_ids(item_ids):
     """
     Generate a deterministic, pleasant color palette for item IDs.
@@ -452,6 +573,101 @@ def restaurant_dashboard():
         restaurant_name=restaurant_name,
         restaurant_email=restaurant_email,
     )
+
+
+@app.route("/restaurant/analytics")
+@restaurant_required
+def restaurant_analytics():
+    """
+    Analytics dashboard showing restaurant order statistics and trends.
+    Calculates analytics snapshot on the fly from current order data.
+    
+    Args:
+        None
+    Returns:
+        Response: Renders analytics dashboard with charts and metrics.
+    """
+    restaurant_name = session.get("RestaurantName", "Restaurant")
+    rtr_id = session.get("rtr_id")
+
+    # Record a fresh analytics snapshot from current order data
+    record_analytics_snapshot(rtr_id)
+
+    conn = create_connection(db_file)
+    try:
+        # Fetch all analytics snapshots for this restaurant (now includes fresh one)
+        snapshots = fetch_all(
+            conn,
+            """
+            SELECT snapshot_date, total_orders, total_revenue_cents, 
+                   avg_order_value_cents, total_customers, order_completion_rate
+            FROM Analytics
+            WHERE rtr_id = ?
+            ORDER BY snapshot_date DESC
+            """,
+            (rtr_id,),
+        )
+
+        # Calculate aggregated metrics from all snapshots
+        total_orders = sum(s[1] for s in snapshots) if snapshots else 0
+        total_revenue = sum(s[2] for s in snapshots) / 100.0 if snapshots else 0.0
+        avg_order_value = (total_revenue / total_orders) if total_orders > 0 else 0.0
+
+        # Prepare data for charts
+        if snapshots:
+            # Orders over time (last 30 days)
+            dates = [s[0] for s in snapshots[-30:]]
+            order_counts = [s[1] for s in snapshots[-30:]]
+
+            # Status distribution (using completion rate as a proxy)
+            status_labels = ["Completed", "Pending"]
+            completion_rate = snapshots[0][5] if snapshots else 0.0
+            status_counts = [
+                int(total_orders * (completion_rate / 100.0)),
+                int(total_orders * (1 - completion_rate / 100.0)),
+            ]
+
+            # Get top menu items
+            items = fetch_all(
+                conn,
+                """
+                SELECT m.name, COUNT(oi.oi_id) as count
+                FROM MenuItem m
+                LEFT JOIN OrderItems oi ON m.itm_id = oi.itm_id
+                LEFT JOIN "Orders" o ON oi.o_id = o.ord_id
+                WHERE m.rtr_id = ?
+                GROUP BY m.itm_id
+                ORDER BY count DESC
+                LIMIT 10
+                """,
+                (rtr_id,),
+            )
+
+            item_names = [item[0] for item in items] if items else []
+            item_counts = [item[1] for item in items] if items else []
+        else:
+            dates = []
+            order_counts = []
+            status_labels = []
+            status_counts = []
+            item_names = []
+            item_counts = []
+
+        return render_template(
+            "restaurant_analytics.html",
+            restaurant_name=restaurant_name,
+            total_orders=total_orders,
+            total_revenue=total_revenue,
+            avg_order_value=avg_order_value,
+            date_labels=dates,
+            date_counts=order_counts,
+            status_labels=status_labels,
+            status_counts=status_counts,
+            item_names=item_names,
+            item_counts=item_counts,
+        )
+    finally:
+        close_connection(conn)
 
 
 # Registration route
