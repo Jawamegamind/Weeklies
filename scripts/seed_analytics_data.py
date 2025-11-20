@@ -6,10 +6,11 @@ Usage:
     python seed_analytics_data.py
     
 This script will:
-    1. Connect to the production database
-    2. Insert multiple orders with various statuses and dates
-    3. Generate realistic revenue and customer data with JSON details
-    4. Verify data was inserted successfully
+    1. Clear all existing orders from the Order table
+    2. Connect to the production database
+    3. Insert orders at different stages (PENDING, CONFIRMED, PREPARING, READY, COMPLETED, CANCELLED)
+    4. Generate realistic revenue and customer data with JSON details
+    5. Verify data was inserted successfully
 """
 
 import os
@@ -29,6 +30,14 @@ def seed_analytics_data():
     """
     Seed Order table with realistic dummy data for analytics testing.
     Uses the actual production database schema with JSON details.
+    
+    Stages:
+    - PENDING: New orders just placed (last 1 hour)
+    - CONFIRMED: Orders confirmed and in queue (1-3 hours ago)
+    - PREPARING: Orders currently being prepared (3-6 hours ago)
+    - READY: Orders ready for pickup/delivery (6-12 hours ago)
+    - COMPLETED: Orders delivered/picked up (12+ hours ago)
+    - CANCELLED: Cancelled orders (random times)
     """
     conn = create_connection(db_file)
     if conn is None:
@@ -36,6 +45,11 @@ def seed_analytics_data():
         return False
     
     try:
+        # Clear existing orders first
+        print("🗑️  Clearing existing orders...")
+        execute_query(conn, 'DELETE FROM "Order"')
+        print("✓ Orders cleared\n")
+        
         # Get a restaurant to use for testing
         rtr_result = fetch_one(conn, "SELECT rtr_id, name FROM Restaurant LIMIT 1")
         if not rtr_result:
@@ -61,33 +75,62 @@ def seed_analytics_data():
             return False
         
         user_ids = [row[0] for row in users_result]
-        print(f"✓ Found {len(user_ids)} users to assign to orders")
+        print(f"✓ Found {len(user_ids)} users to assign to orders\n")
         
-        # Order statuses
-        statuses = ['Ordered', 'Confirmed', 'Preparing', 'Completed', 'Delivered', 'Cancelled']
+        # Define order stages with their statuses and time offsets
+        stages = [
+            {
+                "name": "PENDING",
+                "status": "Ordered",
+                "count": 8,
+                "time_offset_minutes": lambda: random.randint(0, 60)
+            },
+            {
+                "name": "CONFIRMED",
+                "status": "Confirmed",
+                "count": 6,
+                "time_offset_minutes": lambda: random.randint(60, 180)
+            },
+            {
+                "name": "PREPARING",
+                "status": "Preparing",
+                "count": 4,
+                "time_offset_minutes": lambda: random.randint(180, 360)
+            },
+            {
+                "name": "READY",
+                "status": "Ready",
+                "count": 5,
+                "time_offset_minutes": lambda: random.randint(360, 720)
+            },
+            {
+                "name": "COMPLETED",
+                "status": random.choice(['Completed', 'Delivered']),
+                "count": 25,
+                "time_offset_minutes": lambda: random.randint(720, 2880)  # 12 hours to 2 days
+            },
+            {
+                "name": "CANCELLED",
+                "status": "Cancelled",
+                "count": 2,
+                "time_offset_minutes": lambda: random.randint(60, 1440)
+            }
+        ]
         
-        # Generate 30 days of orders
         orders_created = 0
         
-        print("\n📝 Creating orders...")
-        for day_offset in range(30):
-            order_date = datetime.now() - timedelta(days=day_offset)
+        print("📝 Creating orders by stage:\n")
+        for stage in stages:
+            stage_name = stage["name"]
+            status = stage["status"]
+            count = stage["count"]
             
-            # Create 2-5 orders per day
-            num_orders_today = random.randint(2, 5)
+            print(f"  Creating {count} {stage_name} orders...")
             
-            for _ in range(num_orders_today):
-                # Randomly select status (more recent orders more likely to be completed)
-                if day_offset < 3:
-                    # Recent orders might still be pending/preparing
-                    status = random.choice(['Ordered', 'Confirmed', 'Preparing', 'Completed', 'Delivered'])
-                else:
-                    # Older orders should mostly be completed/delivered
-                    status = random.choices(
-                        ['Completed', 'Delivered', 'Cancelled'],
-                        weights=[70, 25, 5],
-                        k=1
-                    )[0]
+            for _ in range(count):
+                # Calculate order time
+                offset_minutes = stage["time_offset_minutes"]()
+                order_date = datetime.now() - timedelta(minutes=offset_minutes)
                 
                 # Random customer
                 usr_id = random.choice(user_ids)
@@ -145,10 +188,12 @@ def seed_analytics_data():
                     ''', (rtr_id, usr_id, json.dumps(details), status))
                     orders_created += 1
                 except Exception as e:
-                    print(f"    Warning: Could not insert order: {e}")
+                    print(f"      Warning: Could not insert order: {e}")
                     continue
+            
+            print(f"    ✓ Created {count} {stage_name} orders")
         
-        print(f"✓ Created {orders_created} orders")
+        print(f"\n✓ Created {orders_created} total orders")
         
         # Display summary
         print("\n📊 Data Summary:")
