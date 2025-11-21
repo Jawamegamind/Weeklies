@@ -1,6 +1,5 @@
 import os
 import re
-import sys
 import argparse
 import math
 import json
@@ -86,23 +85,23 @@ def parse_generated_menu(gen_str):
 def record_analytics_snapshot(rtr_id):
     """
     Record an analytics snapshot for a restaurant by calculating current order metrics.
-    
+
     This function:
     1. Queries all orders for the restaurant
     2. Calculates total orders, revenue, average order value, and completion rate
     3. Identifies the most popular menu item
     4. Inserts a new snapshot record in the Analytics table
-    
+
     Args:
         rtr_id (int): The restaurant ID to record analytics for.
-    
+
     Returns:
         bool: True if snapshot was recorded successfully, False otherwise.
     """
     conn = create_connection(db_file)
     if conn is None:
         return False
-    
+
     try:
         # Get all orders for this restaurant
         orders = fetch_all(
@@ -114,7 +113,7 @@ def record_analytics_snapshot(rtr_id):
             """,
             (rtr_id,),
         )
-        
+
         if not orders:
             # No orders yet, create a blank snapshot
             total_orders = 0
@@ -129,23 +128,27 @@ def record_analytics_snapshot(rtr_id):
             unique_customers = set()
             completed_orders = 0
             item_counts = {}
-            
+
             # Process each order
             for ord_id, status, details_json in orders:
                 # Track completion rate
-                if status and status.lower() in ['completed', 'delivered']:
+                if status and status.lower() in ["completed", "delivered"]:
                     completed_orders += 1
-                
+
                 # Parse details JSON
                 try:
                     if details_json:
-                        details = json.loads(details_json) if isinstance(details_json, str) else details_json
-                        
+                        details = (
+                            json.loads(details_json)
+                            if isinstance(details_json, str)
+                            else details_json
+                        )
+
                         # Extract revenue
                         if "charges" in details and "total" in details["charges"]:
                             total_cents = int(details["charges"]["total"] * 100)
                             total_revenue_cents += total_cents
-                        
+
                         # Track items for popularity
                         if "items" in details:
                             for item in details["items"]:
@@ -154,25 +157,25 @@ def record_analytics_snapshot(rtr_id):
                                     item_counts[itm_id] = item_counts.get(itm_id, 0) + 1
                 except (json.JSONDecodeError, TypeError, KeyError):
                     continue
-                
+
                 # Note: We don't have usr_id in the Order table currently
                 # So we can't track unique_customers reliably
                 # This would need to be added to the Order schema if needed
-            
+
             # Calculate metrics
             avg_order_value_cents = total_revenue_cents // total_orders if total_orders > 0 else 0
             total_customers = total_orders  # Use total orders as proxy since usr_id not available
             order_completion_rate = (completed_orders / total_orders) if total_orders > 0 else 0.0
-            
+
             # Find most popular item
             most_popular_item_id = None
             if item_counts:
                 most_popular_item_id = max(item_counts.items(), key=lambda x: x[1])[0]
-        
+
         # Record the snapshot
         snapshot_date = date.today().isoformat()
         created_at = datetime.now().isoformat()
-        
+
         execute_query(
             conn,
             """
@@ -193,11 +196,12 @@ def record_analytics_snapshot(rtr_id):
                 created_at,
             ),
         )
-        
+
         return True
     except Exception as e:
         print(f"Error recording analytics snapshot: {e}")
         import traceback
+
         traceback.print_exc()
         return False
     finally:
@@ -592,7 +596,7 @@ def restaurant_dashboard():
         "Delivered": 0,
         "Cancelled": 0,
     }
-    
+
     for (status,) in orders:
         if status in status_counts:
             status_counts[status] += 1
@@ -693,7 +697,7 @@ def restaurant_analytics():
     """
     Analytics dashboard showing restaurant order statistics and trends.
     Calculates analytics snapshot on the fly from current order data.
-    
+
     Args:
         None
     Returns:
@@ -722,7 +726,9 @@ def restaurant_analytics():
         )
 
         if latest_snapshot:
-            total_orders, total_revenue_cents, avg_order_value_cents, completion_rate = latest_snapshot
+            total_orders, total_revenue_cents, avg_order_value_cents, completion_rate = (
+                latest_snapshot
+            )
             total_revenue = total_revenue_cents / 100.0
             avg_order_value = avg_order_value_cents / 100.0
         else:
@@ -762,11 +768,15 @@ def restaurant_analytics():
         for order_row in orders:
             if order_row[0]:
                 try:
-                    details = json.loads(order_row[0]) if isinstance(order_row[0], str) else order_row[0]
+                    details = (
+                        json.loads(order_row[0]) if isinstance(order_row[0], str) else order_row[0]
+                    )
                     if "items" in details:
                         for item in details["items"]:
                             item_name = item.get("name", "Unknown")
-                            item_frequency[item_name] = item_frequency.get(item_name, 0) + item.get("qty", 1)
+                            item_frequency[item_name] = item_frequency.get(item_name, 0) + item.get(
+                                "qty", 1
+                            )
                 except (json.JSONDecodeError, TypeError, KeyError):
                     continue
 
@@ -787,7 +797,7 @@ def restaurant_analytics():
             """,
             (rtr_id,),
         )
-        
+
         # Reverse to show oldest to newest
         snapshots = list(reversed(snapshots))
         date_labels = [s[0] for s in snapshots]
@@ -841,9 +851,7 @@ def restaurant_accept_order(ord_id):
             )
 
         # Update status
-        execute_query(
-            conn, 'UPDATE "Order" SET status = ? WHERE ord_id = ?', ("Accepted", ord_id)
-        )
+        execute_query(conn, 'UPDATE "Order" SET status = ? WHERE ord_id = ?', ("Accepted", ord_id))
     finally:
         close_connection(conn)
 
@@ -877,9 +885,7 @@ def restaurant_reject_order(ord_id):
                 400,
             )
 
-        execute_query(
-            conn, 'UPDATE "Order" SET status = ? WHERE ord_id = ?', ("Cancelled", ord_id)
-        )
+        execute_query(conn, 'UPDATE "Order" SET status = ? WHERE ord_id = ?', ("Cancelled", ord_id))
     finally:
         close_connection(conn)
 
@@ -912,9 +918,7 @@ def restaurant_prepare_order(ord_id):
                 400,
             )
 
-        execute_query(
-            conn, 'UPDATE "Order" SET status = ? WHERE ord_id = ?', ("Preparing", ord_id)
-        )
+        execute_query(conn, 'UPDATE "Order" SET status = ? WHERE ord_id = ?', ("Preparing", ord_id))
     finally:
         close_connection(conn)
 
@@ -947,9 +951,7 @@ def restaurant_ready_order(ord_id):
                 400,
             )
 
-        execute_query(
-            conn, 'UPDATE "Order" SET status = ? WHERE ord_id = ?', ("Ready", ord_id)
-        )
+        execute_query(conn, 'UPDATE "Order" SET status = ? WHERE ord_id = ?', ("Ready", ord_id))
     finally:
         close_connection(conn)
 
@@ -982,9 +984,7 @@ def restaurant_deliver_order(ord_id):
                 400,
             )
 
-        execute_query(
-            conn, 'UPDATE "Order" SET status = ? WHERE ord_id = ?', ("Delivered", ord_id)
-        )
+        execute_query(conn, 'UPDATE "Order" SET status = ? WHERE ord_id = ?', ("Delivered", ord_id))
     finally:
         close_connection(conn)
 
@@ -992,6 +992,7 @@ def restaurant_deliver_order(ord_id):
         return jsonify({"ok": True, "new_status": "Delivered"})
     else:
         return redirect(url_for("restaurant_orders"))
+
 
 # Registration route
 @app.route("/register", methods=["GET", "POST"])

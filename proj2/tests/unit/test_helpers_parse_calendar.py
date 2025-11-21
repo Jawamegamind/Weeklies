@@ -1,4 +1,3 @@
-import types
 import proj2.Flask_app as Flask_app
 
 

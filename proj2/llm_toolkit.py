@@ -17,13 +17,6 @@ if platform.system() == "Windows":
     # Disable torch compile optimization which can cause issues on Windows
     os.environ["TORCH_COMPILE"] = "0"
 
-from proj2.sqlQueries import (
-    create_connection,
-    close_connection,
-    fetch_one,
-    fetch_all,
-    execute_query,
-)
 
 
 class LLM:

@@ -78,42 +78,43 @@ def seed_analytics_data():
         print(f"✓ Found {len(user_ids)} users to assign to orders\n")
         
         # Define order stages with their statuses and time offsets
+        # Orders spread across 30 days to show trends in analytics graph
         stages = [
             {
                 "name": "PENDING",
                 "status": "Ordered",
                 "count": 8,
-                "time_offset_minutes": lambda: random.randint(0, 60)
+                "time_offset_minutes": lambda: random.randint(0, 60)  # Today
             },
             {
                 "name": "CONFIRMED",
                 "status": "Confirmed",
                 "count": 6,
-                "time_offset_minutes": lambda: random.randint(60, 180)
+                "time_offset_minutes": lambda: random.randint(1440, 2880)  # 1-2 days ago
             },
             {
                 "name": "PREPARING",
                 "status": "Preparing",
                 "count": 4,
-                "time_offset_minutes": lambda: random.randint(180, 360)
+                "time_offset_minutes": lambda: random.randint(4320, 5760)  # 3-4 days ago
             },
             {
                 "name": "READY",
                 "status": "Ready",
                 "count": 5,
-                "time_offset_minutes": lambda: random.randint(360, 720)
+                "time_offset_minutes": lambda: random.randint(7200, 8640)  # 5-6 days ago
             },
             {
                 "name": "COMPLETED",
                 "status": random.choice(['Completed', 'Delivered']),
-                "count": 25,
-                "time_offset_minutes": lambda: random.randint(720, 2880)  # 12 hours to 2 days
+                "count": 80,  # Increased to get more days of data
+                "time_offset_minutes": lambda: random.randint(10080, 43200)  # 7-30 days ago
             },
             {
                 "name": "CANCELLED",
                 "status": "Cancelled",
-                "count": 2,
-                "time_offset_minutes": lambda: random.randint(60, 1440)
+                "count": 5,
+                "time_offset_minutes": lambda: random.randint(1440, 43200)  # 1-30 days ago
             }
         ]
         
