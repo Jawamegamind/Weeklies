@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Write Review · Weeklies</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <style>
+    .review-container {
+      max-width: 700px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+
+    .order-summary {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .order-summary h3 {
+      margin: 0 0 1rem 0;
+      color: var(--text);
+    }
+
+    .order-info {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .order-info-item {
+      font-size: 0.9rem;
+    }
+
+    .order-info-label {
+      color: var(--muted);
+      font-weight: 500;
+      margin-bottom: 0.25rem;
+    }
+
+    .order-info-value {
+      color: var(--text);
+    }
+
+    .items-list {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .items-list h4 {
+      margin: 0 0 0.75rem 0;
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    .item-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      font-size: 0.9rem;
+      color: var(--text);
+    }
+
+    .review-form {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 2rem;
+    }
+
+    .review-form h2 {
+      margin: 0 0 1.5rem 0;
+      color: var(--text);
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .form-label.required::after {
+      content: " *";
+      color: #ef4444;
+    }
+
+    /* Star Rating */
+    .star-rating {
+      display: flex;
+      gap: 0.5rem;
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .star {
+      cursor: pointer;
+      color: #d1d5db;
+      transition: color 0.2s, transform 0.1s;
+      user-select: none;
+    }
+
+    .star:hover {
+      transform: scale(1.1);
+    }
+
+    .star.filled {
+      color: #fbbf24;
+    }
+
+    .star.hover {
+      color: #fcd34d;
+    }
+
+    .rating-text {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 0.5rem;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      font-size: 1rem;
+      background: var(--background);
+      color: var(--text);
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .form-textarea {
+      min-height: 120px;
+      resize: vertical;
+      font-family: inherit;
+    }
+
+    .char-counter {
+      text-align: right;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 0.25rem;
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+
+    .btn-submit {
+      flex: 1;
+      padding: 0.875rem 1.5rem;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: var(--radius-xs);
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .btn-submit:hover:not(:disabled) {
+      opacity: 0.9;
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-cancel {
+      padding: 0.875rem 1.5rem;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      transition: background 0.2s;
+    }
+
+    .btn-cancel:hover {
+      background: var(--hint);
+      text-decoration: none;
+    }
+
+    .error-message {
+      background: #fee2e2;
+      color: #991b1b;
+      padding: 1rem;
+      border-radius: var(--radius-xs);
+      margin-bottom: 1.5rem;
+      border: 1px solid #fecaca;
+    }
+
+    .back-link {
+      display: inline-block;
+      margin-bottom: 1rem;
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .back-link:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <a class="brand" href="{{ url_for('index') }}">
+        <span class="logo" aria-hidden="true"></span> Weeklies
+      </a>
+      <nav>
+        <a href="{{ url_for('index') }}">Home</a>
+        <a href="{{ url_for('profile') }}">Profile</a>
+        <a href="{{ url_for('restaurants') }}">Restaurants</a>
+        <a href="{{ url_for('orders') }}">Order</a>
+        <a href="{{ url_for('logout') }}" data-confirm="Log out now?">Logout</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="review-container">
+      <a href="{{ url_for('profile') }}" class="back-link">← Back to Profile</a>
+      
+      <h1>Write a Review</h1>
+
+      {% if error %}
+      <div class="error-message">{{ error }}</div>
+      {% endif %}
+
+      <!-- Order Summary -->
+      <div class="order-summary">
+        <h3>Order #{{ order["ord_id"] }}</h3>
+        <div class="order-info">
+          <div class="order-info-item">
+            <div class="order-info-label">Restaurant</div>
+            <div class="order-info-value">{{ order["restaurant_name"] }}</div>
+          </div>
+          <div class="order-info-item">
+            <div class="order-info-label">Order Date</div>
+            <div class="order-info-value">{{ order["order_date"] }}</div>
+          </div>
+          <div class="order-info-item">
+            <div class="order-info-label">Total</div>
+            <div class="order-info-value">${{ "%.2f"|format(order["total"]) }}</div>
+          </div>
+        </div>
+
+        {% if order["items"] %}
+        <div class="items-list">
+          <h4>Items Ordered:</h4>
+          {% for item in order["items"] %}
+          <div class="item-row">
+            <span>{{ item["qty"] }}× {{ item["name"] }}</span>
+            <span>${{ "%.2f"|format(item["line_total"]) }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Review Form -->
+      <form method="POST" class="review-form" id="reviewForm">
+        <h2>Your Review</h2>
+
+        <!-- Rating -->
+        <div class="form-group">
+          <label class="form-label required">Rating</label>
+          <div class="star-rating" id="starRating">
+            <span class="star" data-rating="1">★</span>
+            <span class="star" data-rating="2">★</span>
+            <span class="star" data-rating="3">★</span>
+            <span class="star" data-rating="4">★</span>
+            <span class="star" data-rating="5">★</span>
+          </div>
+          <input type="hidden" name="rating" id="ratingInput" required>
+          <div class="rating-text" id="ratingText">Select a rating</div>
+        </div>
+
+        <!-- Title -->
+        <div class="form-group">
+          <label for="title" class="form-label">Review Title (Optional)</label>
+          <input 
+            type="text" 
+            id="title" 
+            name="title" 
+            class="form-input"
+            placeholder="Summarize your experience..."
+            maxlength="100">
+        </div>
+
+        <!-- Description -->
+        <div class="form-group">
+          <label for="description" class="form-label">Your Review (Optional)</label>
+          <textarea 
+            id="description" 
+            name="description" 
+            class="form-input form-textarea"
+            placeholder="Tell us about your experience with this order..."
+            maxlength="500"></textarea>
+          <div class="char-counter">
+            <span id="charCount">0</span> / 500 characters
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="form-actions">
+          <a href="{{ url_for('profile') }}" class="btn-cancel">Cancel</a>
+          <button type="submit" class="btn-submit" id="submitBtn" disabled>
+            Submit Review
+          </button>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">© 2025 Weeklies</div>
+  </footer>
+
+  <script>
+    // Star Rating Functionality
+    const stars = document.querySelectorAll('.star');
+    const ratingInput = document.getElementById('ratingInput');
+    const ratingText = document.getElementById('ratingText');
+    const submitBtn = document.getElementById('submitBtn');
+    let selectedRating = 0;
+
+    const ratingLabels = {
+      1: 'Poor',
+      2: 'Fair',
+      3: 'Good',
+      4: 'Very Good',
+      5: 'Excellent'
+    };
+
+    stars.forEach(star => {
+      star.addEventListener('click', function() {
+        selectedRating = parseInt(this.dataset.rating);
+        ratingInput.value = selectedRating;
+        updateStars(selectedRating);
+        ratingText.textContent = ratingLabels[selectedRating];
+        submitBtn.disabled = false;
+      });
+
+      star.addEventListener('mouseenter', function() {
+        if (selectedRating === 0) {
+          const hoverRating = parseInt(this.dataset.rating);
+          updateStars(hoverRating, true);
+        }
+      });
+    });
+
+    document.getElementById('starRating').addEventListener('mouseleave', function() {
+      if (selectedRating === 0) {
+        updateStars(0);
+      }
+    });
+
+    function updateStars(rating, isHover = false) {
+      stars.forEach((star, index) => {
+        star.classList.remove('filled', 'hover');
+        if (index < rating) {
+          star.classList.add(isHover ? 'hover' : 'filled');
+        }
+      });
+    }
+
+    // Character Counter
+    const description = document.getElementById('description');
+    const charCount = document.getElementById('charCount');
+
+    description.addEventListener('input', function() {
+      charCount.textContent = this.value.length;
+    });
+
+    // Form Validation
+    document.getElementById('reviewForm').addEventListener('submit', function(e) {
+      if (!ratingInput.value) {
+        e.preventDefault();
+        alert('Please select a rating before submitting.');
+        return false;
+      }
+    });
+  </script>
+</body>
+</html>

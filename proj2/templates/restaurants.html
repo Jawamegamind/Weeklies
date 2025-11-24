@@ -491,6 +491,7 @@
       
       const addr = formatAddress(r);
       const formattedHours = r.hours ? formatHours(r.hours) : '';
+      const reviewsUrl = `{{ url_for('restaurant_reviews', rtr_id=0) }}`.replace('/0', `/${r.rtr_id}`);
       const infoHtml = `
         <div>
           <h3>${r.name}</h3>
@@ -499,6 +500,7 @@
             ${formattedHours ? `<div>🕐 ${formattedHours}</div>` : ''}
             ${r.phone ? `<div>📞 ${r.phone}</div>` : ''}
             ${r.status ? `<div>Status: ${r.status}</div>` : ''}
+            <div><a href="${reviewsUrl}" style="color: #5b8cff; text-decoration: none; font-weight: 600;" onclick="event.stopPropagation();">⭐ View Reviews</a></div>
           </div>
         </div>
       `;
