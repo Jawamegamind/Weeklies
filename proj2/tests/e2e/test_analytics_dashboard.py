@@ -422,7 +422,7 @@ def test_analytics_snapshot_calculates_metrics(client, restaurant_login_session,
         assert snapshot[0] == 3  # 3 orders
         assert snapshot[1] > 0  # Revenue > 0
         # Completion rate should be around 66.67% (2 delivered out of 3)
-        assert snapshot[2] > 60 and snapshot[2] < 70
+        assert snapshot[2] > 0.6 and snapshot[2] < 0.7
     finally:
         close_connection(conn)
 
