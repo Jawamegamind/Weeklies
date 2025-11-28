@@ -1,10 +1,18 @@
 import pytest
 import os
 import pandas as pd
+from unittest.mock import Mock, patch
 
 import proj2.menu_generation as menu_generation
 from proj2.sqlQueries import *
 from proj2.Flask_app import parse_generated_menu
+
+# Skip all LLM tests on CI (GitHub Actions on Linux)
+# These require a GPU or significant CPU resources and the LLM model to be available
+pytestmark = pytest.mark.skipif(
+    os.environ.get("CI") == "true" or os.environ.get("GITHUB_ACTIONS") == "true",
+    reason="LLM tests require model loading and are skipped on CI"
+)
 
 generator = menu_generation.MenuGenerator()
 
