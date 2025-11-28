@@ -6,15 +6,21 @@ import proj2.menu_generation as menu_generation
 from proj2.sqlQueries import *
 from proj2.Flask_app import parse_generated_menu
 
-db_file = os.path.join(os.path.dirname(__file__), "../../CSC510_DB.db")
-
 generator = menu_generation.MenuGenerator()
-conn = create_connection(db_file)
-menu_items = pd.read_sql_query("SELECT * FROM MenuItem WHERE instock == 1", conn)
-close_connection(conn)
 
 
 # Module-level fixtures for test data
+@pytest.fixture(scope="module")
+def menu_items_data(seed_minimal_data):
+    """Load menu items from the test database."""
+    conn = create_connection(__import__("proj2.Flask_app", fromlist=["db_file"]).db_file)
+    try:
+        items = pd.read_sql_query("SELECT * FROM MenuItem WHERE instock == 1", conn)
+        return items
+    finally:
+        close_connection(conn)
+
+
 @pytest.fixture(scope="module")
 def menugenerator_single_menus():
     menugenerator_single_menu1 = generator.update_menu(
@@ -87,7 +93,7 @@ def test_MenuGenerator_single_no_regression(menugenerator_single_menus):
     assert parsed4["2025-10-15"][1] == parsed5["2025-10-15"][1]
 
 
-def test_MenuGenerator_single_valid_items(menugenerator_single_menus):
+def test_MenuGenerator_single_valid_items(menugenerator_single_menus, menu_items_data):
     (
         menugenerator_single_menu1,
         menugenerator_single_menu2,
@@ -97,11 +103,11 @@ def test_MenuGenerator_single_valid_items(menugenerator_single_menus):
     ) = menugenerator_single_menus
     parsed5 = parse_generated_menu(menugenerator_single_menu5)
 
-    assert menu_items[menu_items["itm_id"] == parsed5["2025-10-14"][0]["itm_id"]].shape[0] == 1
-    assert menu_items[menu_items["itm_id"] == parsed5["2025-10-14"][1]["itm_id"]].shape[0] == 1
-    assert menu_items[menu_items["itm_id"] == parsed5["2025-10-15"][0]["itm_id"]].shape[0] == 1
-    assert menu_items[menu_items["itm_id"] == parsed5["2025-10-15"][1]["itm_id"]].shape[0] == 1
-    assert menu_items[menu_items["itm_id"] == parsed5["2025-10-15"][2]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed5["2025-10-14"][0]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed5["2025-10-14"][1]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed5["2025-10-15"][0]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed5["2025-10-15"][1]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed5["2025-10-15"][2]["itm_id"]].shape[0] == 1
 
 
 def test_MenuGenerator_single_correct_meals(menugenerator_single_menus):
@@ -151,17 +157,17 @@ def test_MenuGenerator_multiple_meals_no_regression(menugenerator_multiple_meals
     assert parsed1["2025-10-14"][1] == parsed2["2025-10-14"][1]
 
 
-def test_MenuGenerator_multiple_meals_valid_items(menugenerator_multiple_meals_menus):
+def test_MenuGenerator_multiple_meals_valid_items(menugenerator_multiple_meals_menus, menu_items_data):
     menugenerator_multiple_meals_menu1, menugenerator_multiple_meals_menu2 = (
         menugenerator_multiple_meals_menus
     )
     parsed2 = parse_generated_menu(menugenerator_multiple_meals_menu2)
 
-    assert menu_items[menu_items["itm_id"] == parsed2["2025-10-14"][0]["itm_id"]].shape[0] == 1
-    assert menu_items[menu_items["itm_id"] == parsed2["2025-10-14"][1]["itm_id"]].shape[0] == 1
-    assert menu_items[menu_items["itm_id"] == parsed2["2025-10-15"][0]["itm_id"]].shape[0] == 1
-    assert menu_items[menu_items["itm_id"] == parsed2["2025-10-15"][1]["itm_id"]].shape[0] == 1
-    assert menu_items[menu_items["itm_id"] == parsed2["2025-10-15"][2]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed2["2025-10-14"][0]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed2["2025-10-14"][1]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed2["2025-10-15"][0]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed2["2025-10-15"][1]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed2["2025-10-15"][2]["itm_id"]].shape[0] == 1
 
 
 def test_MenuGenerator_multiple_meals_correct_meals(menugenerator_multiple_meals_menus):
@@ -211,17 +217,18 @@ def test_MenuGenerator_multiple_meals_out_of_order_no_regression(
 
 def test_MenuGenerator_multiple_meals_out_of_order_valid_items(
     menugenerator_multiple_meals_oof_menus,
+    menu_items_data,
 ):
     menugenerator_multiple_meals_oof_menu1, menugenerator_multiple_meals_oof_menu2 = (
         menugenerator_multiple_meals_oof_menus
     )
     parsed2 = parse_generated_menu(menugenerator_multiple_meals_oof_menu2)
 
-    assert menu_items[menu_items["itm_id"] == parsed2["2025-10-14"][0]["itm_id"]].shape[0] == 1
-    assert menu_items[menu_items["itm_id"] == parsed2["2025-10-14"][1]["itm_id"]].shape[0] == 1
-    assert menu_items[menu_items["itm_id"] == parsed2["2025-10-15"][0]["itm_id"]].shape[0] == 1
-    assert menu_items[menu_items["itm_id"] == parsed2["2025-10-15"][1]["itm_id"]].shape[0] == 1
-    assert menu_items[menu_items["itm_id"] == parsed2["2025-10-15"][2]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed2["2025-10-14"][0]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed2["2025-10-14"][1]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed2["2025-10-15"][0]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed2["2025-10-15"][1]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed2["2025-10-15"][2]["itm_id"]].shape[0] == 1
 
 
 def test_MenuGenerator_multiple_meals_out_of_order_correct_meals(
@@ -288,7 +295,7 @@ def test_MenuGenerator_multiple_days_no_regression(menugenerator_multiple_days_m
     assert parsed2["2025-10-15"][1] == parsed3["2025-10-15"][1]
 
 
-def test_MenuGenerator_multiple_days_valid_items(menugenerator_multiple_days_menus):
+def test_MenuGenerator_multiple_days_valid_items(menugenerator_multiple_days_menus, menu_items_data):
     (
         menugenerator_multiple_days_menu1,
         menugenerator_multiple_days_menu2,
@@ -296,11 +303,11 @@ def test_MenuGenerator_multiple_days_valid_items(menugenerator_multiple_days_men
     ) = menugenerator_multiple_days_menus
     parsed3 = parse_generated_menu(menugenerator_multiple_days_menu3)
 
-    assert menu_items[menu_items["itm_id"] == parsed3["2025-10-14"][0]["itm_id"]].shape[0] == 1
-    assert menu_items[menu_items["itm_id"] == parsed3["2025-10-14"][1]["itm_id"]].shape[0] == 1
-    assert menu_items[menu_items["itm_id"] == parsed3["2025-10-15"][0]["itm_id"]].shape[0] == 1
-    assert menu_items[menu_items["itm_id"] == parsed3["2025-10-15"][1]["itm_id"]].shape[0] == 1
-    assert menu_items[menu_items["itm_id"] == parsed3["2025-10-15"][2]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed3["2025-10-14"][0]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed3["2025-10-14"][1]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed3["2025-10-15"][0]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed3["2025-10-15"][1]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed3["2025-10-15"][2]["itm_id"]].shape[0] == 1
 
 
 def test_MenuGenerator_multiple_days_correct_meals(menugenerator_multiple_days_menus):
@@ -346,15 +353,16 @@ def menugenerator_partial_duplicate(menugenerator_multiple_days_multiple_meals_m
 
 def test_MenuGenerator_multiple_days_multiple_meals_valid_items(
     menugenerator_multiple_days_multiple_meals_menu,
+    menu_items_data,
 ):
     parsed = parse_generated_menu(menugenerator_multiple_days_multiple_meals_menu)
 
-    assert menu_items[menu_items["itm_id"] == parsed["2025-10-14"][0]["itm_id"]].shape[0] == 1
-    assert menu_items[menu_items["itm_id"] == parsed["2025-10-14"][1]["itm_id"]].shape[0] == 1
-    assert menu_items[menu_items["itm_id"] == parsed["2025-10-14"][2]["itm_id"]].shape[0] == 1
-    assert menu_items[menu_items["itm_id"] == parsed["2025-10-15"][0]["itm_id"]].shape[0] == 1
-    assert menu_items[menu_items["itm_id"] == parsed["2025-10-15"][1]["itm_id"]].shape[0] == 1
-    assert menu_items[menu_items["itm_id"] == parsed["2025-10-15"][2]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed["2025-10-14"][0]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed["2025-10-14"][1]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed["2025-10-14"][2]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed["2025-10-15"][0]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed["2025-10-15"][1]["itm_id"]].shape[0] == 1
+    assert menu_items_data[menu_items_data["itm_id"] == parsed["2025-10-15"][2]["itm_id"]].shape[0] == 1
 
 
 def test_MenuGenerator_multiple_days_multiple_meals_correct_meals(
@@ -396,18 +404,18 @@ def test_MenuGenerator_partial_duplicate_no_regression(
     assert parse_original["2025-10-15"][2] == parse_partial_duplicate["2025-10-15"][2]
 
 
-def test_MenuGenerator_partial_duplicate_valid_items(menugenerator_partial_duplicate):
+def test_MenuGenerator_partial_duplicate_valid_items(menugenerator_partial_duplicate, menu_items_data):
     parse_partial_duplicate = parse_generated_menu(menugenerator_partial_duplicate)
 
     assert (
-        menu_items[
-            menu_items["itm_id"] == parse_partial_duplicate["2025-10-16"][0]["itm_id"]
+        menu_items_data[
+            menu_items_data["itm_id"] == parse_partial_duplicate["2025-10-16"][0]["itm_id"]
         ].shape[0]
         == 1
     )
     assert (
-        menu_items[
-            menu_items["itm_id"] == parse_partial_duplicate["2025-10-16"][1]["itm_id"]
+        menu_items_data[
+            menu_items_data["itm_id"] == parse_partial_duplicate["2025-10-16"][1]["itm_id"]
         ].shape[0]
         == 1
     )
