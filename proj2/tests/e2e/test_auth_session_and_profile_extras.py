@@ -1,4 +1,3 @@
-from flask import session
 from datetime import date
 
 

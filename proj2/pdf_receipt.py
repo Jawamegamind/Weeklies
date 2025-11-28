@@ -8,7 +8,7 @@ from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
 from reportlab.lib import colors
 
-from proj2.sqlQueries import create_connection, close_connection, fetch_one, fetch_all
+from proj2.sqlQueries import create_connection, close_connection, fetch_one
 
 
 def _safe_str(x):
@@ -120,11 +120,11 @@ def generate_order_receipt_pdf(db_file: str, ord_id: int) -> bytes:
         # Header
         c.setFont("Helvetica-Bold", 16)
         c.drawString(margin, y, f"Receipt · Order #{ord_id}")
-        
+
         # Status badge with color coding
         c.setFont("Helvetica-Bold", 11)
         status_str = _safe_str(status).upper()
-        
+
         # Set color based on status
         if status_str == "CANCELLED":
             c.setFillColor(colors.red)
@@ -136,9 +136,9 @@ def generate_order_receipt_pdf(db_file: str, ord_id: int) -> bytes:
             c.setFillColor(colors.blue)
         else:
             c.setFillColor(colors.grey)
-        
+
         c.drawString(margin, y - 14, f"Status: {status_str}")
-        
+
         # Placed date
         c.setFillColor(colors.grey)
         c.setFont("Helvetica", 10)
@@ -172,7 +172,7 @@ def generate_order_receipt_pdf(db_file: str, ord_id: int) -> bytes:
             c.setStrokeColor(colors.red)
             c.setFillColor(colors.Color(1, 0.95, 0.95))  # Light red background
             c.rect(margin, y - 40, width - 2 * margin, 35, stroke=1, fill=1)
-            
+
             c.setFillColor(colors.red)
             c.setFont("Helvetica-Bold", 12)
             c.drawCentredString(width / 2, y - 15, "⚠ ORDER CANCELLED ⚠")

@@ -1,4 +1,7 @@
-import json, sqlite3, tempfile, os
+import json
+import sqlite3
+import tempfile
+import os
 import proj2.pdf_receipt as mod
 from proj2.pdf_receipt import generate_order_receipt_pdf
 

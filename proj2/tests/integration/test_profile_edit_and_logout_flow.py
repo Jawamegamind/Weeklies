@@ -1,4 +1,3 @@
-from proj2.sqlQueries import create_connection, close_connection, execute_query, fetch_one
 
 
 def test_profile_requires_login_redirects(client):
