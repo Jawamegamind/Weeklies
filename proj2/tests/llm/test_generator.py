@@ -14,7 +14,13 @@ pytestmark = pytest.mark.skipif(
     reason="LLM tests require model loading and are skipped on CI"
 )
 
-generator = menu_generation.MenuGenerator()
+# Initialize generator - will be skipped anyway on CI
+try:
+    generator = menu_generation.MenuGenerator()
+except Exception as e:
+    # If generator fails to initialize (e.g., on CI), set to None
+    # Tests will be skipped anyway due to pytestmark
+    generator = None
 
 
 # Module-level fixtures for test data
