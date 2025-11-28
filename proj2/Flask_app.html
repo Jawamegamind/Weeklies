@@ -42,6 +42,9 @@
                     <a class="function" href="#parse_generated_menu">parse_generated_menu</a>
             </li>
             <li>
+                    <a class="function" href="#record_analytics_snapshot">record_analytics_snapshot</a>
+            </li>
+            <li>
                     <a class="function" href="#palette_for_item_ids">palette_for_item_ids</a>
             </li>
             <li>
@@ -73,6 +76,9 @@
             </li>
             <li>
                     <a class="function" href="#restaurant_orders">restaurant_orders</a>
+            </li>
+            <li>
+                    <a class="function" href="#restaurant_analytics">restaurant_analytics</a>
             </li>
             <li>
                     <a class="function" href="#restaurant_accept_order">restaurant_accept_order</a>
@@ -179,6 +185,36 @@ Args:
     gen_str (str): A string like "[YYYY-MM-DD,ID,(meal)]..." where meal is 1|2|3 (optional).
 Returns:
     dict: Mapping 'YYYY-MM-DD' -> [{'itm_id': int, 'meal': int}, ...].</p>
+</div>
+
+
+                </section>
+                <section id="record_analytics_snapshot">
+                    <div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">record_analytics_snapshot</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">rtr_id</span></span><span class="return-annotation">):</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#record_analytics_snapshot"></a>
+    
+            <div class="docstring"><p>Record an analytics snapshot for a restaurant by calculating current order metrics.</p>
+
+<p>This function:</p>
+
+<ol>
+<li>Queries all orders for the restaurant</li>
+<li>Calculates total orders, revenue, average order value, and completion rate</li>
+<li>Identifies the most popular menu item</li>
+<li>Inserts a new snapshot record in the Analytics table</li>
+</ol>
+
+<p>Args:
+    rtr_id (int): The restaurant ID to record analytics for.</p>
+
+<p>Returns:
+    bool: True if snapshot was recorded successfully, False otherwise.</p>
 </div>
 
 
@@ -401,6 +437,29 @@ Args:
     None
 Returns:
     Response: Renders restaurant orders page with all orders.</p>
+</div>
+
+
+                </section>
+                <section id="restaurant_analytics">
+                    <div class="attr function">
+                    <div class="decorator">@app.route(&#39;/restaurant/analytics&#39;)</div>
+        <div class="decorator">@restaurant_required</div>
+
+        <span class="def">def</span>
+        <span class="name">restaurant_analytics</span><span class="signature pdoc-code condensed">(<span class="return-annotation">):</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#restaurant_analytics"></a>
+    
+            <div class="docstring"><p>Analytics dashboard showing restaurant order statistics and trends.
+Calculates analytics snapshot on the fly from current order data.</p>
+
+<p>Args:
+    None
+Returns:
+    Response: Renders analytics dashboard with charts and metrics.</p>
 </div>
 
 
