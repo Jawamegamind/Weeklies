@@ -64,7 +64,8 @@ CREATE TABLE IF NOT EXISTS "OrderItems" (
 
 CREATE TABLE IF NOT EXISTS "Review" (
   rev_id INTEGER PRIMARY KEY AUTOINCREMENT,
-  rtr_id INTEGER, usr_id INTEGER, title TEXT, rating INTEGER, description TEXT
+  rtr_id INTEGER, usr_id INTEGER, title TEXT, rating INTEGER, description TEXT,
+  ord_id INTEGER, created_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS "Analytics" (
