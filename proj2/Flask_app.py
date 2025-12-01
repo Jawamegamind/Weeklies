@@ -1842,7 +1842,7 @@ if __name__ == "__main__":
     MenuItem: itm_id,rtr_id,name,description,price,calories,instock,restock,allergens
     Order: ord_id,rtr_id,usr_id,details,status
     Restaurant: rtr_id,name,description,phone,email,password_HS,address,city,state,zip,hours,status
-    Review: rev_id,rtr_id,usr_id,title,rating,description
+    Review: rev_id,rtr_id,usr_id,title,rating,description,ord_id,created_at
     User: usr_id,first_name,last_name,email,phone,password_HS,wallet,preferences,allergies,generated_menu
     """
     args = parse_args()
