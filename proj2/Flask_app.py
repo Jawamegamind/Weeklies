@@ -1452,7 +1452,7 @@ def view_review(ord_id):
     Args:
         ord_id (int): The order ID.
     Returns:
-        Response: Redirect to restaurant reviews page with review highlighted.
+        Response: Renders the user's individual review.
     """
     # Must be logged in
     if session.get("Username") is None:
@@ -1464,12 +1464,14 @@ def view_review(ord_id):
 
     conn = create_connection(db_file)
     try:
-        # Get review and restaurant ID
+        # Get review details with restaurant info
         review_row = fetch_one(
             conn,
             """
-            SELECT r.rtr_id, r.rev_id
+            SELECT r.rev_id, r.rtr_id, r.ord_id, r.title, r.rating, r.description, r.created_at,
+                   rest.name as restaurant_name
             FROM "Review" r
+            JOIN "Restaurant" rest ON r.rtr_id = rest.rtr_id
             WHERE r.ord_id = ? AND r.usr_id = ?
             """,
             (ord_id, usr_id),
@@ -1478,10 +1480,18 @@ def view_review(ord_id):
         if not review_row:
             return redirect(url_for("profile"))
 
-        rtr_id, rev_id = review_row
+        review = {
+            "rev_id": review_row[0],
+            "rtr_id": review_row[1],
+            "ord_id": review_row[2],
+            "title": review_row[3],
+            "rating": review_row[4],
+            "description": review_row[5],
+            "created_at": review_row[6],
+            "restaurant_name": review_row[7],
+        }
 
-        # Redirect to restaurant reviews page
-        return redirect(url_for("restaurant_reviews", rtr_id=rtr_id, highlight=rev_id))
+        return render_template("view_review.html", review=review)
 
     finally:
         close_connection(conn)
