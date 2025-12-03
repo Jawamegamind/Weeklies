@@ -25,6 +25,7 @@ DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 ## LLM Prompt - defined as global variables to enable testing
 SYSTEM_TEMPLATE = "You are a health and nutrition expert planning meals for a customer based on their preferences. Use only the menu items provided under CSV CONTEXT."
 PROMPT_TEMPLATE = """Choose a meal for a customer based on their preferences: {preferences}
+Pay special attention that meal's dont include prohibited categories, like vegetarian meals dont have meat or halal meals dont have pork
 Make sure that the item makes sense for {meal}.
 Provide only the itm_id as output
 

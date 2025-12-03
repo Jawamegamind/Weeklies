@@ -149,10 +149,24 @@
             <input class="input" type="text" id="allergens" name="allergens" placeholder="e.g., Peanuts,Shellfish">
           </div>
           <div class="form-row" style="margin-top: 10px;">
-            <button type="submit" class="btn btn-primary">Generate Plan</button>
+            <button type="submit" class="btn btn-primary" id="generateMenuBtn">Generate Plan</button>
             <span class="muted" style="margin-left:10px;">The first run may take longer to load the local model.</span>
           </div>
+          
+          <!-- Loading spinner (hidden by default) - Bright colors for dark mode visibility -->
+          <div id="menuLoading" style="display: none; margin-top: 20px; text-align: center; padding: 20px; background: rgba(255, 193, 7, 0.1); border-radius: 12px; border: 2px solid #ffc107;">
+            <div style="display: inline-flex; align-items: center; gap: 12px;">
+              <div style="width: 32px; height: 32px; border: 4px solid rgba(255, 193, 7, 0.3); border-top-color: #ffc107; border-right-color: #ff9800; border-radius: 50%; animation: spin 0.8s linear infinite; box-shadow: 0 0 12px rgba(255, 193, 7, 0.5);"></div>
+              <div style="text-align: left;">
+                <span style="font-size: 14px; font-weight: 700; color: #ffc107; display: block;">Generating meal plan...</span>
+                <span style="font-size: 12px; color: #ff9800; display: block; margin-top: 4px;">This may take 1-2 minutes</span>
+              </div>
+            </div>
+          </div>
         </form>
+        
+        <!-- Hidden form data (for AJAX submission) -->
+        <input type="hidden" id="menuFormData" value="">
       </div>
     </div>
 
