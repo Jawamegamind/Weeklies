@@ -406,11 +406,15 @@ def test_restaurant_can_view_their_reviews_page(client, seed_minimal_data, db_co
         (seed_minimal_data["rtr_id"], seed_minimal_data["usr_id"], "Great Service", 5, "Amazing food", 988, datetime.now().isoformat())
     )
     
-    # Access reviews page for the restaurant
-    response = client.get(f"/restaurant/{seed_minimal_data['rtr_id']}/reviews")
+    # Access the secure restaurant owner reviews page
+    response = client.get("/restaurant/reviews")
     assert response.status_code == 200
     html = response.data.decode()
     
     # Verify review is displayed
     assert "Great Service" in html
     assert "Amazing food" in html
+    
+    # Verify restaurant navigation is present (not customer navigation)
+    assert "Back to Dashboard" in html
+    assert "restaurant@test.com" in html

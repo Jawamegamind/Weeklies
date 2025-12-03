@@ -709,6 +709,123 @@ def restaurant_orders():
     )
 
 
+@app.route("/restaurant/reviews")
+@restaurant_required
+def restaurant_owner_reviews():
+    """
+    Restaurant owner's view of their reviews.
+    Args:
+        None
+    Returns:
+        Response: Renders restaurant reviews page for the owner.
+    """
+    rtr_id = session.get("rtr_id")
+    restaurant_name = session.get("RestaurantName", "Restaurant")
+    restaurant_email = session.get("RestaurantEmail", "")
+
+    conn = create_connection(db_file)
+    try:
+        # Get query parameters
+        page = max(1, int(request.args.get("page", 1)))
+        sort = request.args.get("sort", "recent")
+        filter_rating = request.args.get("filter", "all")
+
+        per_page = 10
+        offset = (page - 1) * per_page
+
+        # Build WHERE clause for filter
+        where_clause = "rtr_id = ?"
+        params = [rtr_id]
+        if filter_rating != "all":
+            try:
+                filter_int = int(filter_rating)
+                if 1 <= filter_int <= 5:
+                    where_clause += " AND rating = ?"
+                    params.append(filter_int)
+            except ValueError:
+                pass
+
+        # Build ORDER BY clause for sort
+        if sort == "highest":
+            order_by = "rating DESC, created_at DESC"
+        elif sort == "lowest":
+            order_by = "rating ASC, created_at DESC"
+        else:  # recent
+            order_by = "created_at DESC"
+
+        # Get total count
+        total_reviews = fetch_one(
+            conn, f'SELECT COUNT(*) FROM "Review" WHERE {where_clause}', tuple(params)
+        )[0]
+
+        # Calculate average rating
+        avg_row = fetch_one(
+            conn, 'SELECT AVG(rating) FROM "Review" WHERE rtr_id = ?', (rtr_id,)
+        )
+        average_rating = float(avg_row[0]) if avg_row and avg_row[0] else 0.0
+
+        # Get reviews
+        review_rows = fetch_all(
+            conn,
+            f"""
+            SELECT r.rev_id, r.title, r.rating, r.description, r.created_at, r.ord_id,
+                   u.first_name, u.last_name
+            FROM "Review" r
+            JOIN "User" u ON r.usr_id = u.usr_id
+            WHERE {where_clause}
+            ORDER BY {order_by}
+            LIMIT ? OFFSET ?
+            """,
+            tuple(params + [per_page, offset]),
+        )
+
+        reviews = []
+        for rev_id, title, rating, description, created_at, ord_id, first_name, last_name in review_rows:
+            # Format date
+            date_str = ""
+            if created_at:
+                try:
+                    dt = datetime.fromisoformat(created_at)
+                    date_str = dt.strftime("%B %d, %Y")
+                except Exception:
+                    date_str = created_at
+
+            # Get user initial for avatar
+            user_initial = first_name[0].upper() if first_name else "?"
+            user_name = f"{first_name} {last_name}" if first_name and last_name else "Anonymous"
+
+            reviews.append(
+                {
+                    "rev_id": rev_id,
+                    "title": title,
+                    "rating": rating,
+                    "description": description,
+                    "date": date_str,
+                    "ord_id": ord_id,
+                    "user_name": user_name,
+                    "user_initial": user_initial,
+                }
+            )
+
+        total_pages = math.ceil(total_reviews / per_page) if total_reviews > 0 else 1
+
+        return render_template(
+            "restaurant_owner_reviews.html",
+            restaurant_name=restaurant_name,
+            restaurant_email=restaurant_email,
+            reviews=reviews,
+            total_reviews=total_reviews,
+            average_rating=average_rating,
+            page=page,
+            total_pages=total_pages,
+            sort=sort,
+            filter=filter_rating,
+        )
+
+    finally:
+        close_connection(conn)
+
+
 @app.route("/restaurant/analytics")
 @restaurant_required
 def restaurant_analytics():
