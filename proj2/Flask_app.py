@@ -584,6 +584,17 @@ def restaurant_dashboard():
         """,
             (rtr_id,),
         )
+        
+        # Get review stats
+        review_stats = fetch_one(
+            conn,
+            """
+            SELECT COUNT(*), AVG(rating)
+            FROM "Review"
+            WHERE rtr_id = ?
+            """,
+            (rtr_id,),
+        )
     finally:
         close_connection(conn)
 
@@ -600,12 +611,19 @@ def restaurant_dashboard():
     for (status,) in orders:
         if status in status_counts:
             status_counts[status] += 1
+    
+    # Review stats
+    total_reviews = review_stats[0] if review_stats else 0
+    average_rating = float(review_stats[1]) if review_stats and review_stats[1] else 0.0
 
     return render_template(
         "restaurant_dashboard_home.html",
         restaurant_name=restaurant_name,
         restaurant_email=restaurant_email,
         status_counts=status_counts,
+        total_reviews=total_reviews,
+        average_rating=average_rating,
+        rtr_id=rtr_id,
     )
 
 

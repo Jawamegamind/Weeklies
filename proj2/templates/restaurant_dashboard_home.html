@@ -120,6 +120,24 @@
     .card-analytics .card-badge {
       background: #3b82f6;
     }
+
+    .card-reviews .card-badge {
+      background: #f59e0b;
+    }
+
+    .rating-display {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    .stars-small {
+      color: #fbbf24;
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -162,6 +180,23 @@
           View sales reports, performance metrics, and customer insights
         </p>
         <span class="card-badge">Active</span>
+      </a>
+
+      <!-- Reviews Card -->
+      <a href="{{ url_for('restaurant_reviews', rtr_id=rtr_id) }}" class="dashboard-card card-reviews">
+        <div class="card-icon">⭐</div>
+        <h3 class="card-title">Reviews</h3>
+        <p class="card-description">
+          View customer reviews and ratings for your restaurant
+        </p>
+        {% if total_reviews > 0 %}
+        <div class="rating-display">
+          <span class="stars-small">{{ "%.1f"|format(average_rating) }} ★</span>
+          <span class="card-badge">{{ total_reviews }} {{ 'Review' if total_reviews == 1 else 'Reviews' }}</span>
+        </div>
+        {% else %}
+        <span class="card-badge">No Reviews Yet</span>
+        {% endif %}
       </a>
     </div>
   </div>

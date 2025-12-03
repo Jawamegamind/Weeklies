@@ -182,8 +182,8 @@ def test_duplicate_review_redirects_to_view(client, seed_minimal_data, login_ses
 
 
 @pytest.mark.integration
-def test_view_review_redirects_to_restaurant_page(client, seed_minimal_data, login_session, db_connection):
-    """Test that viewing a review redirects to restaurant reviews page."""
+def test_view_review_shows_individual_review_page(client, seed_minimal_data, login_session, db_connection):
+    """Test that viewing a review shows the individual review page."""
     # Create delivered order and review
     order_details = {"placed_at": datetime.now().isoformat(), "items": [], "charges": {"total": 10.00}}
     execute_query(
@@ -201,10 +201,16 @@ def test_view_review_redirects_to_restaurant_page(client, seed_minimal_data, log
         (seed_minimal_data["rtr_id"], seed_minimal_data["usr_id"], "Good", 4, "Nice", ord_id, datetime.now().isoformat())
     )
     
-    # View review
-    response = client.get(f"/order/{ord_id}/review/view", follow_redirects=False)
-    assert response.status_code == 302
-    assert f"/restaurant/{seed_minimal_data['rtr_id']}/reviews" in response.location
+    # View review - should render template with review details
+    response = client.get(f"/order/{ord_id}/review/view")
+    assert response.status_code == 200
+    html = response.data.decode()
+    
+    # Verify review details are displayed
+    assert "Good" in html  # title
+    assert "Nice" in html  # description
+    assert "Your Review" in html or "review" in html.lower()
+    assert f"#{ord_id}" in html or str(ord_id) in html  # Order ID shown
 
 
 @pytest.mark.integration
@@ -316,3 +322,95 @@ def test_restaurant_reviews_filtering(client, seed_minimal_data, db_connection):
     assert response.status_code == 200
     html = response.data.decode()
     assert "Five stars" in html or "Perfect" in html
+
+
+@pytest.mark.integration
+def test_restaurant_dashboard_shows_review_stats(client, seed_minimal_data, db_connection):
+    """Test that restaurant dashboard displays review statistics."""
+    # Create restaurant session
+    with client.session_transaction() as sess:
+        sess["rtr_id"] = seed_minimal_data["rtr_id"]
+        sess["RestaurantName"] = "Test Restaurant"
+        sess["RestaurantEmail"] = "restaurant@test.com"
+        sess["restaurant_mode"] = True
+    
+    # Create some reviews
+    reviews = [
+        (seed_minimal_data["rtr_id"], seed_minimal_data["usr_id"], "Great", 5, "Excellent", 991, datetime.now().isoformat()),
+        (seed_minimal_data["rtr_id"], seed_minimal_data["usr_id"], "Good", 4, "Nice", 990, datetime.now().isoformat()),
+        (seed_minimal_data["rtr_id"], seed_minimal_data["usr_id"], "OK", 3, "Decent", 989, datetime.now().isoformat()),
+    ]
+    
+    for review in reviews:
+        execute_query(
+            db_connection,
+            'INSERT INTO "Review" (rtr_id, usr_id, title, rating, description, ord_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            review
+        )
+    
+    # Access restaurant dashboard
+    response = client.get("/restaurant/dashboard")
+    assert response.status_code == 200
+    html = response.data.decode()
+    
+    # Verify review card is present
+    assert "Reviews" in html
+    assert "3 Reviews" in html or "3" in html  # Review count
+    # Average rating should be 4.0 (5+4+3)/3
+    assert "4.0" in html or "4" in html
+
+
+@pytest.mark.integration
+def test_restaurant_dashboard_no_reviews_state(client, db_connection):
+    """Test that restaurant dashboard shows 'No Reviews Yet' when no reviews exist."""
+    # Create a new restaurant with no reviews
+    execute_query(
+        db_connection,
+        'INSERT INTO "Restaurant" (name, email, password_HS, phone, address, city, state, zip) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        ("New Restaurant", "new@test.com", "hash", "555-0000", "123 St", "City", "ST", 12345)
+    )
+    
+    rest = fetch_one(db_connection, 'SELECT rtr_id FROM "Restaurant" WHERE email = ?', ("new@test.com",))
+    rtr_id = rest[0]
+    
+    # Create restaurant session
+    with client.session_transaction() as sess:
+        sess["rtr_id"] = rtr_id
+        sess["RestaurantName"] = "New Restaurant"
+        sess["RestaurantEmail"] = "new@test.com"
+        sess["restaurant_mode"] = True
+    
+    # Access dashboard
+    response = client.get("/restaurant/dashboard")
+    assert response.status_code == 200
+    html = response.data.decode()
+    
+    # Verify no reviews state
+    assert "No Reviews Yet" in html or "0 Reviews" in html
+
+
+@pytest.mark.integration
+def test_restaurant_can_view_their_reviews_page(client, seed_minimal_data, db_connection):
+    """Test that restaurant can access their reviews page from dashboard."""
+    # Create restaurant session
+    with client.session_transaction() as sess:
+        sess["rtr_id"] = seed_minimal_data["rtr_id"]
+        sess["RestaurantName"] = "Test Restaurant"
+        sess["RestaurantEmail"] = "restaurant@test.com"
+        sess["restaurant_mode"] = True
+    
+    # Create a review
+    execute_query(
+        db_connection,
+        'INSERT INTO "Review" (rtr_id, usr_id, title, rating, description, ord_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        (seed_minimal_data["rtr_id"], seed_minimal_data["usr_id"], "Great Service", 5, "Amazing food", 988, datetime.now().isoformat())
+    )
+    
+    # Access reviews page for the restaurant
+    response = client.get(f"/restaurant/{seed_minimal_data['rtr_id']}/reviews")
+    assert response.status_code == 200
+    html = response.data.decode()
+    
+    # Verify review is displayed
+    assert "Great Service" in html
+    assert "Amazing food" in html
