@@ -108,6 +108,15 @@
                     <a class="function" href="#change_password">change_password</a>
             </li>
             <li>
+                    <a class="function" href="#review_order">review_order</a>
+            </li>
+            <li>
+                    <a class="function" href="#view_review">view_review</a>
+            </li>
+            <li>
+                    <a class="function" href="#restaurant_reviews">restaurant_reviews</a>
+            </li>
+            <li>
                     <a class="function" href="#order">order</a>
             </li>
             <li>
@@ -625,6 +634,66 @@ Args:
     None
 Returns:
     Response: Redirect back to profile with success or error flags.</p>
+</div>
+
+
+                </section>
+                <section id="review_order">
+                    <div class="attr function">
+                    <div class="decorator">@app.route(&#39;/order/&lt;int:ord_id&gt;/review&#39;, methods=[&#39;GET&#39;, &#39;POST&#39;])</div>
+
+        <span class="def">def</span>
+        <span class="name">review_order</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">ord_id</span></span><span class="return-annotation">):</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#review_order"></a>
+    
+            <div class="docstring"><p>Display review form (GET) or submit a new review (POST) for a delivered order.
+Args:
+    ord_id (int): The order ID to review.
+Returns:
+    Response: Review form HTML (GET) or redirect to profile (POST).</p>
+</div>
+
+
+                </section>
+                <section id="view_review">
+                    <div class="attr function">
+                    <div class="decorator">@app.route(&#39;/order/&lt;int:ord_id&gt;/review/view&#39;)</div>
+
+        <span class="def">def</span>
+        <span class="name">view_review</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">ord_id</span></span><span class="return-annotation">):</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#view_review"></a>
+    
+            <div class="docstring"><p>View an existing review for an order.
+Args:
+    ord_id (int): The order ID.
+Returns:
+    Response: Redirect to restaurant reviews page with review highlighted.</p>
+</div>
+
+
+                </section>
+                <section id="restaurant_reviews">
+                    <div class="attr function">
+                    <div class="decorator">@app.route(&#39;/restaurant/&lt;int:rtr_id&gt;/reviews&#39;)</div>
+
+        <span class="def">def</span>
+        <span class="name">restaurant_reviews</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">rtr_id</span></span><span class="return-annotation">):</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#restaurant_reviews"></a>
+    
+            <div class="docstring"><p>Display all reviews for a restaurant with pagination, sorting, and filtering.
+Args:
+    rtr_id (int): The restaurant ID.
+Returns:
+    Response: Restaurant reviews page HTML.</p>
 </div>
 
 
