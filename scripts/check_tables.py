@@ -4,29 +4,37 @@ import os
 
 db_file = os.path.join('proj2', 'CSC510_DB.db')
 
-if not os.path.exists(db_file):
-    print(f"Database file not found: {db_file}")
-    sys.exit(1)
 
-conn = sqlite3.connect(db_file)
-cursor = conn.cursor()
+def check_database_tables():
+    """Check and display database tables and their schemas."""
+    if not os.path.exists(db_file):
+        print(f"Database file not found: {db_file}")
+        sys.exit(1)
 
-# Get all tables
-cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-tables = cursor.fetchall()
+    conn = sqlite3.connect(db_file)
+    cursor = conn.cursor()
 
-print("Tables in database:")
-for table in tables:
-    print(f"  - {table[0]}")
+    # Get all tables
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+    tables = cursor.fetchall()
 
-# Get schema for each table
-print("\nTable schemas:")
-for table in tables:
-    table_name = table[0]
-    cursor.execute(f"PRAGMA table_info({table_name});")
-    columns = cursor.fetchall()
-    print(f"\n{table_name}:")
-    for col in columns:
-        print(f"  - {col[1]}: {col[2]}")
+    print("Tables in database:")
+    for table in tables:
+        print(f"  - {table[0]}")
 
-conn.close()
+    # Get schema for each table
+    print("\nTable schemas:")
+    for table in tables:
+        table_name = table[0]
+        # Quote table name in case it's a reserved word
+        cursor.execute(f'PRAGMA table_info("{table_name}");')
+        columns = cursor.fetchall()
+        print(f"\n{table_name}:")
+        for col in columns:
+            print(f"  - {col[1]}: {col[2]}")
+
+    conn.close()
+
+
+if __name__ == '__main__':
+    check_database_tables()
