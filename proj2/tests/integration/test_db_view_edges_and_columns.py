@@ -1,4 +1,3 @@
-from html import unescape
 
 
 def test_db_view_user_table_page_zero_clamped(client, login_session):

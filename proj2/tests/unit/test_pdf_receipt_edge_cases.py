@@ -1,6 +1,5 @@
 import sqlite3
 import os
-import json
 import tempfile
 
 import proj2.pdf_receipt as mod

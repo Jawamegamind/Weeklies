@@ -50,12 +50,13 @@ jobs:
           max_attempts: 3
           # retry_on: error
           command: |
+            cd proj2
             set -euo pipefail
             export PYTHONUNBUFFERED=1
             # unique file per attempt; GITHUB_RUN_ATTEMPT is stable, add a seconds stamp too
             LOG="$GITHUB_WORKSPACE/pytest_attempt_${GITHUB_RUN_ATTEMPT}_$(date +%s).log"
-            # stream to console AND write to file; pipefail keeps pytest’s exit status
-            stdbuf -oL -eL pytest -vv --log-cli-level=INFO --maxfail=1 --timeout=120 --durations=10 2>&1 | tee "$LOG"
+            # stream to console AND write to file; pipefail keeps pytest's exit status
+            pytest -vv --log-cli-level=INFO --maxfail=5 --timeout=120 --durations=10 2>&1 | tee "$LOG"
 
       - name: Check code formatting (Black)
         run: |

@@ -1,4 +1,7 @@
-import sqlite3, tempfile, os, pytest
+import sqlite3
+import tempfile
+import os
+import pytest
 import proj2.pdf_receipt as mod
 from proj2.pdf_receipt import generate_order_receipt_pdf
 

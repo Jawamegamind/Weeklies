@@ -1,6 +1,5 @@
 import os
 import re
-import sys
 import argparse
 import math
 import json
@@ -82,6 +81,132 @@ def parse_generated_menu(gen_str):
         except ValueError:
             continue
     return out
+
+
+def record_analytics_snapshot(rtr_id):
+    """
+    Record an analytics snapshot for a restaurant by calculating current order metrics.
+
+    This function:
+    1. Queries all orders for the restaurant
+    2. Calculates total orders, revenue, average order value, and completion rate
+    3. Identifies the most popular menu item
+    4. Inserts a new snapshot record in the Analytics table
+
+    Args:
+        rtr_id (int): The restaurant ID to record analytics for.
+
+    Returns:
+        bool: True if snapshot was recorded successfully, False otherwise.
+    """
+    conn = create_connection(db_file)
+    if conn is None:
+        return False
+
+    try:
+        # Get all orders for this restaurant
+        orders = fetch_all(
+            conn,
+            """
+            SELECT ord_id, status, details
+            FROM "Order"
+            WHERE rtr_id = ?
+            """,
+            (rtr_id,),
+        )
+
+        if not orders:
+            # No orders yet, create a blank snapshot
+            total_orders = 0
+            total_revenue_cents = 0
+            avg_order_value_cents = 0
+            total_customers = 0
+            order_completion_rate = 0.0
+            most_popular_item_id = None
+        else:
+            total_orders = len(orders)
+            total_revenue_cents = 0
+            unique_customers = set()
+            completed_orders = 0
+            item_counts = {}
+
+            # Process each order
+            for ord_id, status, details_json in orders:
+                # Track completion rate
+                if status and status.lower() in ["completed", "delivered"]:
+                    completed_orders += 1
+
+                # Parse details JSON
+                try:
+                    if details_json:
+                        details = (
+                            json.loads(details_json)
+                            if isinstance(details_json, str)
+                            else details_json
+                        )
+
+                        # Extract revenue
+                        if "charges" in details and "total" in details["charges"]:
+                            total_cents = int(details["charges"]["total"] * 100)
+                            total_revenue_cents += total_cents
+
+                        # Track items for popularity
+                        if "items" in details:
+                            for item in details["items"]:
+                                itm_id = item.get("itm_id")
+                                if itm_id:
+                                    item_counts[itm_id] = item_counts.get(itm_id, 0) + 1
+                except (json.JSONDecodeError, TypeError, KeyError):
+                    continue
+
+                # Note: We don't have usr_id in the Order table currently
+                # So we can't track unique_customers reliably
+                # This would need to be added to the Order schema if needed
+
+            # Calculate metrics
+            avg_order_value_cents = total_revenue_cents // total_orders if total_orders > 0 else 0
+            total_customers = total_orders  # Use total orders as proxy since usr_id not available
+            order_completion_rate = (completed_orders / total_orders) if total_orders > 0 else 0.0
+
+            # Find most popular item
+            most_popular_item_id = None
+            if item_counts:
+                most_popular_item_id = max(item_counts.items(), key=lambda x: x[1])[0]
+
+        # Record the snapshot
+        snapshot_date = date.today().isoformat()
+        created_at = datetime.now().isoformat()
+
+        execute_query(
+            conn,
+            """
+            INSERT INTO Analytics
+            (rtr_id, snapshot_date, total_orders, total_revenue_cents, avg_order_value_cents,
+             total_customers, most_popular_item_id, order_completion_rate, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                rtr_id,
+                snapshot_date,
+                total_orders,
+                total_revenue_cents,
+                avg_order_value_cents,
+                total_customers,
+                most_popular_item_id,
+                order_completion_rate,
+                created_at,
+            ),
+        )
+
+        return True
+    except Exception as e:
+        print(f"Error recording analytics snapshot: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return False
+    finally:
+        close_connection(conn)
 
 
 def palette_for_item_ids(item_ids):
@@ -410,7 +535,7 @@ def restaurant_login():
             session["RestaurantName"] = restaurant[1]
             session["RestaurantEmail"] = email
             session.permanent = True
-            app.permanent_session_lifetime = timedelta(hours=8)  # Longer for restaurant staff
+            app.permanent_session_lifetime = timedelta(minutes=30)
 
             return redirect(url_for("restaurant_dashboard"))
 
@@ -439,20 +564,570 @@ def restaurant_logout():
 @restaurant_required
 def restaurant_dashboard():
     """
-    Main dashboard showing all orders for the restaurant, grouped by status.
+    Main dashboard landing page with module cards.
     Args:
         None
     Returns:
-        Response: Renders restaurant dashboard with orders.
+        Response: Renders restaurant dashboard home with quick stats.
     """
+    rtr_id = session.get("rtr_id")
     restaurant_name = session.get("RestaurantName", "Restaurant")
     restaurant_email = session.get("RestaurantEmail", "")
 
+    # Get quick stats for dashboard cards
+    conn = create_connection(db_file)
+    try:
+        orders = fetch_all(
+            conn,
+            """
+            SELECT status FROM "Order"
+            WHERE rtr_id = ?
+        """,
+            (rtr_id,),
+        )
+        
+        # Get review stats
+        review_stats = fetch_one(
+            conn,
+            """
+            SELECT COUNT(*), AVG(rating)
+            FROM "Review"
+            WHERE rtr_id = ?
+            """,
+            (rtr_id,),
+        )
+    finally:
+        close_connection(conn)
+
+    # Calculate status counts for badge
+    status_counts = {
+        "Ordered": 0,
+        "Accepted": 0,
+        "Preparing": 0,
+        "Ready": 0,
+        "Delivered": 0,
+        "Cancelled": 0,
+    }
+
+    for (status,) in orders:
+        if status in status_counts:
+            status_counts[status] += 1
+    
+    # Review stats
+    total_reviews = review_stats[0] if review_stats else 0
+    average_rating = float(review_stats[1]) if review_stats and review_stats[1] else 0.0
+
     return render_template(
-        "restaurant_dashboard.html",
+        "restaurant_dashboard_home.html",
         restaurant_name=restaurant_name,
         restaurant_email=restaurant_email,
+        status_counts=status_counts,
+        total_reviews=total_reviews,
+        average_rating=average_rating,
+        rtr_id=rtr_id,
     )
+
+
+@app.route("/restaurant/orders")
+@restaurant_required
+def restaurant_orders():
+    """
+    Order management page showing all orders for the restaurant, grouped by status.
+    Args:
+        None
+    Returns:
+        Response: Renders restaurant orders page with all orders.
+    """
+    rtr_id = session.get("rtr_id")
+    restaurant_name = session.get("RestaurantName", "Restaurant")
+    restaurant_email = session.get("RestaurantEmail", "")
+
+    conn = create_connection(db_file)
+    try:
+        # Get all orders for this restaurant
+        orders = fetch_all(
+            conn,
+            """
+            SELECT o.ord_id, o.usr_id, o.details, o.status, 
+                   u.first_name, u.last_name, u.email, u.phone
+            FROM "Order" o
+            JOIN "User" u ON o.usr_id = u.usr_id
+            WHERE o.rtr_id = ?
+            ORDER BY o.ord_id DESC
+        """,
+            (rtr_id,),
+        )
+    finally:
+        close_connection(conn)
+
+    # Group orders by status
+    orders_by_status = {
+        "Ordered": [],
+        "Accepted": [],
+        "Preparing": [],
+        "Ready": [],
+        "Delivered": [],
+        "Cancelled": [],
+    }
+
+    for order in orders:
+        ord_id, usr_id, details_json, status, fname, lname, email, phone = order
+
+        # Parse JSON details
+        try:
+            details = json.loads(details_json)
+        except:
+            details = {}
+
+        order_obj = {
+            "ord_id": ord_id,
+            "usr_id": usr_id,
+            "status": status,
+            "customer_name": f"{fname} {lname}",
+            "customer_email": email,
+            "customer_phone": phone,
+            "placed_at": details.get("placed_at", ""),
+            "items": details.get("items", []),
+            "charges": details.get("charges", {}),
+            "delivery_type": details.get("delivery_type", "delivery"),
+            "eta_minutes": details.get("eta_minutes", 40),
+            "date": details.get("date", ""),
+            "meal": details.get("meal", 3),
+            "notes": details.get("notes", ""),
+        }
+
+        if status in orders_by_status:
+            orders_by_status[status].append(order_obj)
+        else:
+            orders_by_status.setdefault("Other", []).append(order_obj)
+
+    return render_template(
+        "restaurant_orders.html",
+        restaurant_name=restaurant_name,
+        restaurant_email=restaurant_email,
+        orders_by_status=orders_by_status,
+        status_counts={k: len(v) for k, v in orders_by_status.items()},
+    )
+
+
+@app.route("/restaurant/reviews")
+@restaurant_required
+def restaurant_owner_reviews():
+    """
+    Restaurant owner's view of their reviews.
+    Args:
+        None
+    Returns:
+        Response: Renders restaurant reviews page for the owner.
+    """
+    rtr_id = session.get("rtr_id")
+    restaurant_name = session.get("RestaurantName", "Restaurant")
+    restaurant_email = session.get("RestaurantEmail", "")
+
+    conn = create_connection(db_file)
+    try:
+        # Get query parameters
+        page = max(1, int(request.args.get("page", 1)))
+        sort = request.args.get("sort", "recent")
+        filter_rating = request.args.get("filter", "all")
+
+        per_page = 10
+        offset = (page - 1) * per_page
+
+        # Build WHERE clause for filter
+        where_clause = "rtr_id = ?"
+        params = [rtr_id]
+        if filter_rating != "all":
+            try:
+                filter_int = int(filter_rating)
+                if 1 <= filter_int <= 5:
+                    where_clause += " AND rating = ?"
+                    params.append(filter_int)
+            except ValueError:
+                pass
+
+        # Build ORDER BY clause for sort
+        if sort == "highest":
+            order_by = "rating DESC, created_at DESC"
+        elif sort == "lowest":
+            order_by = "rating ASC, created_at DESC"
+        else:  # recent
+            order_by = "created_at DESC"
+
+        # Get total count
+        total_reviews = fetch_one(
+            conn, f'SELECT COUNT(*) FROM "Review" WHERE {where_clause}', tuple(params)
+        )[0]
+
+        # Calculate average rating
+        avg_row = fetch_one(
+            conn, 'SELECT AVG(rating) FROM "Review" WHERE rtr_id = ?', (rtr_id,)
+        )
+        average_rating = float(avg_row[0]) if avg_row and avg_row[0] else 0.0
+
+        # Get reviews
+        review_rows = fetch_all(
+            conn,
+            f"""
+            SELECT r.rev_id, r.title, r.rating, r.description, r.created_at, r.ord_id,
+                   u.first_name, u.last_name
+            FROM "Review" r
+            JOIN "User" u ON r.usr_id = u.usr_id
+            WHERE {where_clause}
+            ORDER BY {order_by}
+            LIMIT ? OFFSET ?
+            """,
+            tuple(params + [per_page, offset]),
+        )
+
+        reviews = []
+        for rev_id, title, rating, description, created_at, ord_id, first_name, last_name in review_rows:
+            # Format date
+            date_str = ""
+            if created_at:
+                try:
+                    dt = datetime.fromisoformat(created_at)
+                    date_str = dt.strftime("%B %d, %Y")
+                except Exception:
+                    date_str = created_at
+
+            # Get user initial for avatar
+            user_initial = first_name[0].upper() if first_name else "?"
+            user_name = f"{first_name} {last_name}" if first_name and last_name else "Anonymous"
+
+            reviews.append(
+                {
+                    "rev_id": rev_id,
+                    "title": title,
+                    "rating": rating,
+                    "description": description,
+                    "date": date_str,
+                    "ord_id": ord_id,
+                    "user_name": user_name,
+                    "user_initial": user_initial,
+                }
+            )
+
+        total_pages = math.ceil(total_reviews / per_page) if total_reviews > 0 else 1
+
+        return render_template(
+            "restaurant_owner_reviews.html",
+            restaurant_name=restaurant_name,
+            restaurant_email=restaurant_email,
+            reviews=reviews,
+            total_reviews=total_reviews,
+            average_rating=average_rating,
+            page=page,
+            total_pages=total_pages,
+            sort=sort,
+            filter=filter_rating,
+        )
+
+    finally:
+        close_connection(conn)
+
+
+@app.route("/restaurant/analytics")
+@restaurant_required
+def restaurant_analytics():
+    """
+    Analytics dashboard showing restaurant order statistics and trends.
+    Calculates analytics snapshot on the fly from current order data.
+
+    Args:
+        None
+    Returns:
+        Response: Renders analytics dashboard with charts and metrics.
+    """
+    restaurant_name = session.get("RestaurantName", "Restaurant")
+    rtr_id = session.get("rtr_id")
+
+    # Record a fresh analytics snapshot from current order data
+    record_analytics_snapshot(rtr_id)
+
+    conn = create_connection(db_file)
+    try:
+        # Get the latest snapshot for current metrics
+        latest_snapshot = fetch_one(
+            conn,
+            """
+            SELECT total_orders, total_revenue_cents, avg_order_value_cents, 
+                   order_completion_rate
+            FROM Analytics
+            WHERE rtr_id = ?
+            ORDER BY analytics_id DESC
+            LIMIT 1
+            """,
+            (rtr_id,),
+        )
+
+        if latest_snapshot:
+            total_orders, total_revenue_cents, avg_order_value_cents, completion_rate = (
+                latest_snapshot
+            )
+            total_revenue = total_revenue_cents / 100.0
+            avg_order_value = avg_order_value_cents / 100.0
+        else:
+            total_orders = 0
+            total_revenue = 0.0
+            avg_order_value = 0.0
+            completion_rate = 0.0
+
+        # Get order status distribution from actual orders
+        status_data = fetch_all(
+            conn,
+            """
+            SELECT status, COUNT(*) as count
+            FROM "Order"
+            WHERE rtr_id = ?
+            GROUP BY status
+            ORDER BY count DESC
+            """,
+            (rtr_id,),
+        )
+
+        status_labels = [s[0] for s in status_data] if status_data else []
+        status_counts = [s[1] for s in status_data] if status_data else []
+
+        # Get top menu items from order details JSON
+        # Since items are in JSON, we'll parse them and count
+        orders = fetch_all(
+            conn,
+            """
+            SELECT details FROM "Order"
+            WHERE rtr_id = ?
+            """,
+            (rtr_id,),
+        )
+
+        item_frequency = {}
+        for order_row in orders:
+            if order_row[0]:
+                try:
+                    details = (
+                        json.loads(order_row[0]) if isinstance(order_row[0], str) else order_row[0]
+                    )
+                    if "items" in details:
+                        for item in details["items"]:
+                            item_name = item.get("name", "Unknown")
+                            item_frequency[item_name] = item_frequency.get(item_name, 0) + item.get(
+                                "qty", 1
+                            )
+                except (json.JSONDecodeError, TypeError, KeyError):
+                    continue
+
+        # Sort by frequency and get top 10
+        top_items = sorted(item_frequency.items(), key=lambda x: x[1], reverse=True)[:10]
+        item_names = [item[0] for item in top_items]
+        item_counts = [item[1] for item in top_items]
+
+        # Get historical data for time series chart (last 30 days)
+        snapshots = fetch_all(
+            conn,
+            """
+            SELECT snapshot_date, total_orders
+            FROM Analytics
+            WHERE rtr_id = ?
+            ORDER BY snapshot_date DESC
+            LIMIT 30
+            """,
+            (rtr_id,),
+        )
+
+        # Reverse to show oldest to newest
+        snapshots = list(reversed(snapshots))
+        date_labels = [s[0] for s in snapshots]
+        date_counts = [s[1] for s in snapshots]
+
+        return render_template(
+            "restaurant_analytics.html",
+            restaurant_name=restaurant_name,
+            total_orders=total_orders,
+            total_revenue=total_revenue,
+            avg_order_value=avg_order_value,
+            date_labels=date_labels,
+            date_counts=date_counts,
+            status_labels=status_labels,
+            status_counts=status_counts,
+            item_names=item_names,
+            item_counts=item_counts,
+        )
+    finally:
+        close_connection(conn)
+
+
+# ---------------------- Restaurant Order Management Routes ----------------------
+
+
+@app.route("/restaurant/orders/<int:ord_id>/accept", methods=["POST"])
+@restaurant_required
+def restaurant_accept_order(ord_id):
+    """
+    Accept a pending order (Ordered → Accepted).
+    """
+    rtr_id = session.get("rtr_id")
+
+    conn = create_connection(db_file)
+    try:
+        # Verify order belongs to this restaurant and is in 'Ordered' status
+        order = fetch_one(
+            conn, 'SELECT ord_id, rtr_id, status FROM "Order" WHERE ord_id = ?', (ord_id,)
+        )
+
+        if not order:
+            abort(404)
+
+        if order[1] != rtr_id:
+            abort(403)  # Not this restaurant's order
+
+        if order[2] != "Ordered":
+            return (
+                jsonify({"ok": False, "error": "Order not in pending state"}),
+                400,
+            )
+
+        # Update status
+        execute_query(conn, 'UPDATE "Order" SET status = ? WHERE ord_id = ?', ("Accepted", ord_id))
+    finally:
+        close_connection(conn)
+
+    # Return JSON for AJAX or redirect for full page
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "new_status": "Accepted"})
+    else:
+        return redirect(url_for("restaurant_orders"))
+
+
+@app.route("/restaurant/orders/<int:ord_id>/reject", methods=["POST"])
+@restaurant_required
+def restaurant_reject_order(ord_id):
+    """
+    Reject a pending order (Ordered → Cancelled).
+    """
+    rtr_id = session.get("rtr_id")
+
+    conn = create_connection(db_file)
+    try:
+        order = fetch_one(
+            conn, 'SELECT ord_id, rtr_id, status FROM "Order" WHERE ord_id = ?', (ord_id,)
+        )
+
+        if not order or order[1] != rtr_id:
+            abort(403)
+
+        if order[2] not in ["Ordered", "Accepted", "Preparing"]:
+            return (
+                jsonify({"ok": False, "error": "Cannot cancel at this stage"}),
+                400,
+            )
+
+        execute_query(conn, 'UPDATE "Order" SET status = ? WHERE ord_id = ?', ("Cancelled", ord_id))
+    finally:
+        close_connection(conn)
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "new_status": "Cancelled"})
+    else:
+        return redirect(url_for("restaurant_orders"))
+
+
+@app.route("/restaurant/orders/<int:ord_id>/prepare", methods=["POST"])
+@restaurant_required
+def restaurant_prepare_order(ord_id):
+    """
+    Mark order as being prepared (Accepted → Preparing).
+    """
+    rtr_id = session.get("rtr_id")
+
+    conn = create_connection(db_file)
+    try:
+        order = fetch_one(
+            conn, 'SELECT ord_id, rtr_id, status FROM "Order" WHERE ord_id = ?', (ord_id,)
+        )
+
+        if not order or order[1] != rtr_id:
+            abort(403)
+
+        if order[2] != "Accepted":
+            return (
+                jsonify({"ok": False, "error": "Order must be accepted first"}),
+                400,
+            )
+
+        execute_query(conn, 'UPDATE "Order" SET status = ? WHERE ord_id = ?', ("Preparing", ord_id))
+    finally:
+        close_connection(conn)
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "new_status": "Preparing"})
+    else:
+        return redirect(url_for("restaurant_orders"))
+
+
+@app.route("/restaurant/orders/<int:ord_id>/ready", methods=["POST"])
+@restaurant_required
+def restaurant_ready_order(ord_id):
+    """
+    Mark order as ready for pickup/delivery (Preparing → Ready).
+    """
+    rtr_id = session.get("rtr_id")
+
+    conn = create_connection(db_file)
+    try:
+        order = fetch_one(
+            conn, 'SELECT ord_id, rtr_id, status FROM "Order" WHERE ord_id = ?', (ord_id,)
+        )
+
+        if not order or order[1] != rtr_id:
+            abort(403)
+
+        if order[2] != "Preparing":
+            return (
+                jsonify({"ok": False, "error": "Order must be preparing first"}),
+                400,
+            )
+
+        execute_query(conn, 'UPDATE "Order" SET status = ? WHERE ord_id = ?', ("Ready", ord_id))
+    finally:
+        close_connection(conn)
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "new_status": "Ready"})
+    else:
+        return redirect(url_for("restaurant_orders"))
+
+
+@app.route("/restaurant/orders/<int:ord_id>/deliver", methods=["POST"])
+@restaurant_required
+def restaurant_deliver_order(ord_id):
+    """
+    Mark order as delivered/completed (Ready → Delivered).
+    """
+    rtr_id = session.get("rtr_id")
+
+    conn = create_connection(db_file)
+    try:
+        order = fetch_one(
+            conn, 'SELECT ord_id, rtr_id, status FROM "Order" WHERE ord_id = ?', (ord_id,)
+        )
+
+        if not order or order[1] != rtr_id:
+            abort(403)
+
+        if order[2] != "Ready":
+            return (
+                jsonify({"ok": False, "error": "Order must be ready first"}),
+                400,
+            )
+
+        execute_query(conn, 'UPDATE "Order" SET status = ? WHERE ord_id = ?', ("Delivered", ord_id))
+    finally:
+        close_connection(conn)
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "new_status": "Delivered"})
+    else:
+        return redirect(url_for("restaurant_orders"))
 
 
 # Registration route
@@ -609,6 +1284,13 @@ def profile():
                 except Exception:
                     pass
 
+            # Check if this order has a review
+            has_review = fetch_one(
+                conn,
+                'SELECT 1 FROM "Review" WHERE ord_id = ?',
+                (ord_id,),
+            ) is not None
+
             orders.append(
                 {
                     "id": ord_id,
@@ -616,6 +1298,7 @@ def profile():
                     "status": status or "",
                     "restaurant": r_name,
                     "total": total,
+                    "has_review": has_review,
                 }
             )
     finally:
@@ -772,6 +1455,304 @@ def change_password():
 
     # Success
     return redirect(url_for("profile", pw_updated=1))
+
+
+# ==================== Review Routes ====================
+
+
+@app.route("/order/<int:ord_id>/review", methods=["GET", "POST"])
+def review_order(ord_id):
+    """
+    Display review form (GET) or submit a new review (POST) for a delivered order.
+    Args:
+        ord_id (int): The order ID to review.
+    Returns:
+        Response: Review form HTML (GET) or redirect to profile (POST).
+    """
+    # Must be logged in
+    if session.get("Username") is None:
+        return redirect(url_for("login"))
+
+    usr_id = session.get("usr_id")
+    if not usr_id:
+        return redirect(url_for("logout"))
+
+    conn = create_connection(db_file)
+    try:
+        # Verify order exists, belongs to user, and is delivered
+        order_row = fetch_one(
+            conn,
+            """
+            SELECT o.ord_id, o.rtr_id, o.details, o.status, r.name
+            FROM "Order" o
+            JOIN "Restaurant" r ON o.rtr_id = r.rtr_id
+            WHERE o.ord_id = ? AND o.usr_id = ?
+            """,
+            (ord_id, usr_id),
+        )
+
+        if not order_row:
+            return redirect(url_for("profile"))
+
+        ord_id_db, rtr_id, details, status, r_name = order_row
+
+        # Must be delivered to review
+        if status.lower() != "delivered":
+            return redirect(url_for("profile"))
+
+        # Check if review already exists
+        existing_review = fetch_one(
+            conn, 'SELECT 1 FROM "Review" WHERE ord_id = ?', (ord_id,)
+        )
+        if existing_review:
+            return redirect(url_for("view_review", ord_id=ord_id))
+
+        # Parse order details for display
+        items = []
+        total = 0.0
+        order_date = ""
+        if details:
+            try:
+                j = json.loads(details)
+                order_date = j.get("placed_at") or j.get("time") or ""
+                if order_date:
+                    try:
+                        dt = datetime.fromisoformat(order_date)
+                        order_date = dt.strftime("%Y-%m-%d %H:%M")
+                    except Exception:
+                        pass
+
+                charges = j.get("charges") or {}
+                total = float(charges.get("total") or charges.get("grand_total") or 0)
+
+                for item in j.get("items") or []:
+                    items.append(
+                        {
+                            "name": item.get("name") or "Item",
+                            "qty": item.get("qty") or 1,
+                            "line_total": float(item.get("line_total") or 0),
+                        }
+                    )
+            except Exception:
+                pass
+
+        order = {
+            "ord_id": ord_id,
+            "restaurant_name": r_name,
+            "order_date": order_date,
+            "total": total,
+            "items": items,
+        }
+
+        # Handle POST - Submit review
+        if request.method == "POST":
+            rating = request.form.get("rating")
+            title = (request.form.get("title") or "").strip()
+            description = (request.form.get("description") or "").strip()
+
+            # Validate rating
+            if not rating:
+                return render_template("review_form.html", order=order, error="Please select a rating")
+
+            try:
+                rating_int = int(rating)
+                if rating_int < 1 or rating_int > 5:
+                    raise ValueError
+            except ValueError:
+                return render_template("review_form.html", order=order, error="Invalid rating value")
+
+            # Insert review
+            created_at = datetime.now().isoformat()
+            execute_query(
+                conn,
+                """
+                INSERT INTO "Review" (rtr_id, usr_id, title, rating, description, ord_id, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (rtr_id, usr_id, title, rating_int, description, ord_id, created_at),
+            )
+
+            return redirect(url_for("profile"))
+
+        # GET - Show form
+        return render_template("review_form.html", order=order)
+
+    finally:
+        close_connection(conn)
+
+
+@app.route("/order/<int:ord_id>/review/view")
+def view_review(ord_id):
+    """
+    View an existing review for an order.
+    Args:
+        ord_id (int): The order ID.
+    Returns:
+        Response: Renders the user's individual review.
+    """
+    # Must be logged in
+    if session.get("Username") is None:
+        return redirect(url_for("login"))
+
+    usr_id = session.get("usr_id")
+    if not usr_id:
+        return redirect(url_for("logout"))
+
+    conn = create_connection(db_file)
+    try:
+        # Get review details with restaurant info
+        review_row = fetch_one(
+            conn,
+            """
+            SELECT r.rev_id, r.rtr_id, r.ord_id, r.title, r.rating, r.description, r.created_at,
+                   rest.name as restaurant_name
+            FROM "Review" r
+            JOIN "Restaurant" rest ON r.rtr_id = rest.rtr_id
+            WHERE r.ord_id = ? AND r.usr_id = ?
+            """,
+            (ord_id, usr_id),
+        )
+
+        if not review_row:
+            return redirect(url_for("profile"))
+
+        review = {
+            "rev_id": review_row[0],
+            "rtr_id": review_row[1],
+            "ord_id": review_row[2],
+            "title": review_row[3],
+            "rating": review_row[4],
+            "description": review_row[5],
+            "created_at": review_row[6],
+            "restaurant_name": review_row[7],
+        }
+
+        return render_template("view_review.html", review=review)
+
+    finally:
+        close_connection(conn)
+
+
+@app.route("/restaurant/<int:rtr_id>/reviews")
+def restaurant_reviews(rtr_id):
+    """
+    Display all reviews for a restaurant with pagination, sorting, and filtering.
+    Args:
+        rtr_id (int): The restaurant ID.
+    Returns:
+        Response: Restaurant reviews page HTML.
+    """
+    conn = create_connection(db_file)
+    try:
+        # Get restaurant info
+        restaurant_row = fetch_one(
+            conn, 'SELECT name FROM "Restaurant" WHERE rtr_id = ?', (rtr_id,)
+        )
+        if not restaurant_row:
+            abort(404)
+
+        restaurant = {"name": restaurant_row[0]}
+
+        # Get query parameters
+        page = max(1, int(request.args.get("page", 1)))
+        sort = request.args.get("sort", "recent")
+        filter_rating = request.args.get("filter", "all")
+        highlight = request.args.get("highlight")  # Optional review ID to highlight
+
+        per_page = 10
+        offset = (page - 1) * per_page
+
+        # Build WHERE clause for filter
+        where_clause = "rtr_id = ?"
+        params = [rtr_id]
+        if filter_rating != "all":
+            try:
+                filter_int = int(filter_rating)
+                if 1 <= filter_int <= 5:
+                    where_clause += " AND rating = ?"
+                    params.append(filter_int)
+            except ValueError:
+                pass
+
+        # Build ORDER BY clause for sort
+        if sort == "highest":
+            order_by = "rating DESC, created_at DESC"
+        elif sort == "lowest":
+            order_by = "rating ASC, created_at DESC"
+        else:  # recent
+            order_by = "created_at DESC"
+
+        # Get total count
+        total_reviews = fetch_one(
+            conn, f'SELECT COUNT(*) FROM "Review" WHERE {where_clause}', tuple(params)
+        )[0]
+
+        # Calculate average rating
+        avg_row = fetch_one(
+            conn, 'SELECT AVG(rating) FROM "Review" WHERE rtr_id = ?', (rtr_id,)
+        )
+        average_rating = float(avg_row[0]) if avg_row and avg_row[0] else 0.0
+
+        # Get reviews
+        review_rows = fetch_all(
+            conn,
+            f"""
+            SELECT r.rev_id, r.title, r.rating, r.description, r.created_at, r.ord_id,
+                   u.first_name, u.last_name
+            FROM "Review" r
+            JOIN "User" u ON r.usr_id = u.usr_id
+            WHERE {where_clause}
+            ORDER BY {order_by}
+            LIMIT ? OFFSET ?
+            """,
+            tuple(params + [per_page, offset]),
+        )
+
+        reviews = []
+        for rev_id, title, rating, description, created_at, ord_id, first_name, last_name in review_rows:
+            # Format date
+            date_str = ""
+            if created_at:
+                try:
+                    dt = datetime.fromisoformat(created_at)
+                    date_str = dt.strftime("%B %d, %Y")
+                except Exception:
+                    date_str = created_at
+
+            # Get user initial for avatar
+            user_initial = first_name[0].upper() if first_name else "?"
+            user_name = f"{first_name} {last_name}" if first_name and last_name else "Anonymous"
+
+            reviews.append(
+                {
+                    "rev_id": rev_id,
+                    "title": title,
+                    "rating": rating,
+                    "description": description,
+                    "date": date_str,
+                    "ord_id": ord_id,
+                    "user_name": user_name,
+                    "user_initial": user_initial,
+                    "is_highlighted": str(rev_id) == highlight,
+                }
+            )
+
+        total_pages = math.ceil(total_reviews / per_page) if total_reviews > 0 else 1
+
+        return render_template(
+            "restaurant_reviews.html",
+            restaurant=restaurant,
+            reviews=reviews,
+            total_reviews=total_reviews,
+            average_rating=average_rating,
+            page=page,
+            total_pages=total_pages,
+            sort=sort,
+            filter=filter_rating,
+        )
+
+    finally:
+        close_connection(conn)
 
 
 # Order route (Calendar "Order" button target)
@@ -1411,7 +2392,7 @@ if __name__ == "__main__":
     MenuItem: itm_id,rtr_id,name,description,price,calories,instock,restock,allergens
     Order: ord_id,rtr_id,usr_id,details,status
     Restaurant: rtr_id,name,description,phone,email,password_HS,address,city,state,zip,hours,status
-    Review: rev_id,rtr_id,usr_id,title,rating,description
+    Review: rev_id,rtr_id,usr_id,title,rating,description,ord_id,created_at
     User: usr_id,first_name,last_name,email,phone,password_HS,wallet,preferences,allergies,generated_menu
     """
     args = parse_args()
