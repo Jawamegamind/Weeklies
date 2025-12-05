@@ -678,6 +678,19 @@ def restaurant_orders():
         except:
             details = {}
 
+        # Ensure charges has all required keys
+        charges = details.get("charges", {})
+        if not charges or "total" not in charges:
+            # Fallback: calculate from items or use 0
+            charges = {
+                "subtotal": charges.get("subtotal", 0.0),
+                "tax": charges.get("tax", 0.0),
+                "delivery_fee": charges.get("delivery_fee", 0.0),
+                "service_fee": charges.get("service_fee", 0.0),
+                "tip": charges.get("tip", 0.0),
+                "total": charges.get("total", 0.0),
+            }
+
         order_obj = {
             "ord_id": ord_id,
             "usr_id": usr_id,
@@ -687,7 +700,7 @@ def restaurant_orders():
             "customer_phone": phone,
             "placed_at": details.get("placed_at", ""),
             "items": details.get("items", []),
-            "charges": details.get("charges", {}),
+            "charges": charges,
             "delivery_type": details.get("delivery_type", "delivery"),
             "eta_minutes": details.get("eta_minutes", 40),
             "date": details.get("date", ""),
