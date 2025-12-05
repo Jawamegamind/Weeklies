@@ -135,6 +135,9 @@
                     <a class="function" href="#db_view">db_view</a>
             </li>
             <li>
+                    <a class="function" href="#generate_menu">generate_menu</a>
+            </li>
+            <li>
                     <a class="function" href="#parse_args">parse_args</a>
             </li>
     </ul>
@@ -818,6 +821,24 @@ Args:
     None
 Returns:
     Response: HTML page showing rows/columns for a selected table (requires login).</p>
+</div>
+
+
+                </section>
+                <section id="generate_menu">
+                    <div class="attr function">
+                    <div class="decorator">@app.route(&#39;/menu/generate&#39;, methods=[&#39;POST&#39;])</div>
+
+        <span class="def">def</span>
+        <span class="name">generate_menu</span><span class="signature pdoc-code condensed">(<span class="return-annotation">):</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#generate_menu"></a>
+    
+            <div class="docstring"><p>Generate or extend the logged-in user's AI menu plan and persist it.</p>
+
+<p>Supports application/json and HTML form submissions.</p>
 </div>
 
 
