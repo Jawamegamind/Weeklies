@@ -54,8 +54,9 @@ jobs:
             export PYTHONUNBUFFERED=1
             # unique file per attempt; GITHUB_RUN_ATTEMPT is stable, add a seconds stamp too
             LOG="$GITHUB_WORKSPACE/pytest_attempt_${GITHUB_RUN_ATTEMPT}_$(date +%s).log"
-            # stream to console AND write to file; pipefail keeps pytest’s exit status
-            stdbuf -oL -eL pytest -vv --log-cli-level=INFO --maxfail=1 --timeout=120 --durations=10 2>&1 | tee "$LOG"
+            # stream to console AND write to file; pipefail keeps pytest's exit status
+            # --ignore=proj2/tests/llm excludes expensive LLM tests from CI to prevent timeout
+            stdbuf -oL -eL pytest -vv --log-cli-level=INFO --maxfail=1 --timeout=120 --durations=10 --ignore=proj2/tests/llm 2>&1 | tee "$LOG"
 
       - name: Check code formatting (Black)
         run: |
@@ -74,7 +75,7 @@ jobs:
       - name: Run tests with coverage
         run: |
           set -e
-          pytest
+          pytest --ignore=proj2/tests/llm
         env:
           PYTHONPATH: ${{ env.PYTHONPATH }}
 
@@ -99,7 +100,7 @@ jobs:
         id: badge
         if: always()  # update even on failures so the badge can go red
         run: |
-          OUT="$(pytest || true)"
+          OUT="$(pytest --ignore=proj2/tests/llm || true)"
           SUMMARY=$(echo "$OUT" | grep -Eo '[0-9]+ (passed|failed|skipped|xfailed|xpassed)' | tr '\n' ' ')
           PASSED=$(echo "$SUMMARY" | grep -Eo '[0-9]+ passed' | awk '{print $1}' || echo 0)
           FAILED=$(echo "$SUMMARY" | grep -Eo '[0-9]+ failed' | awk '{print $1}' || echo 0)
