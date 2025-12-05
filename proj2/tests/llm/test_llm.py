@@ -1,5 +1,4 @@
 import re
-import pytest
 
 import proj2.llm_toolkit as llm_toolkit
 import proj2.menu_generation as menu_generation

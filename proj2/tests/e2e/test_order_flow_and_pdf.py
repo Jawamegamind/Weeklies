@@ -1,5 +1,3 @@
-import json
-from proj2.sqlQueries import create_connection, close_connection, fetch_one, fetch_all
 
 
 def test_order_post_and_receipt_pdf(client, seed_minimal_data, login_session, tmp_path):

@@ -188,6 +188,7 @@
                 <th scope="col">Status</th>
                 <th scope="col">Receipt</th>
                 <th scope="col">Total</th>
+                <th scope="col">Review</th>
               </tr>
             </thead>
             <tbody>
@@ -217,6 +218,23 @@
                   </a>
                 </td>
                 <td>{{ order.total }}</td>
+                <td>
+                  {% if order.status|lower == 'delivered' %}
+                    {% if order.has_review %}
+                      <a class="btn btn-outline btn-sm"
+                         href="{{ url_for('view_review', ord_id=order.id) }}">
+                        View Review
+                      </a>
+                    {% else %}
+                      <a class="btn btn-primary btn-sm"
+                         href="{{ url_for('review_order', ord_id=order.id) }}">
+                        ⭐ Review
+                      </a>
+                    {% endif %}
+                  {% else %}
+                    <span style="color: var(--muted); font-size: 0.85rem;">—</span>
+                  {% endif %}
+                </td>
               </tr>
               {% endfor %}
             </tbody>

@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Customer Reviews · {{ restaurant_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <style>
+    .dashboard-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 2rem;
+      margin-bottom: 2rem;
+    }
+    
+    .dashboard-header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .restaurant-info h1 {
+      margin: 0;
+      font-size: 1.8rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .restaurant-info p {
+      margin: 0.5rem 0 0 0;
+      opacity: 0.9;
+      font-size: 0.95rem;
+    }
+    
+    .logout-btn {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+    
+    .logout-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+      text-decoration: none;
+    }
+
+    .reviews-container {
+      max-width: 900px;
+      margin: 0 auto 2rem;
+      padding: 0 1rem;
+    }
+
+    .back-link {
+      display: inline-block;
+      margin-bottom: 1rem;
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .back-link:hover {
+      text-decoration: underline;
+    }
+
+    .restaurant-header {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 2rem;
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+
+    .restaurant-header h2 {
+      margin: 0 0 1rem 0;
+      color: var(--text);
+    }
+
+    .rating-summary {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .average-rating {
+      font-size: 3rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .rating-details {
+      text-align: left;
+    }
+
+    .stars-display {
+      font-size: 1.5rem;
+      color: #fbbf24;
+      letter-spacing: 0.1rem;
+    }
+
+    .stars-display .empty-star {
+      color: #d1d5db;
+    }
+
+    .review-count {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-top: 0.25rem;
+    }
+
+    .no-reviews {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 3rem 2rem;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .no-reviews h3 {
+      margin: 0 0 0.5rem 0;
+      color: var(--text);
+    }
+
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .filter-group {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .filter-label {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .filter-select {
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+
+    .review-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      transition: box-shadow 0.2s;
+    }
+
+    .review-card:hover {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .review-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.75rem;
+    }
+
+    .reviewer-info {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .reviewer-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+      font-size: 1rem;
+    }
+
+    .reviewer-details h4 {
+      margin: 0;
+      color: var(--text);
+      font-size: 1rem;
+    }
+
+    .review-date {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 0.15rem;
+    }
+
+    .review-rating {
+      font-size: 1.25rem;
+      color: #fbbf24;
+    }
+
+    .review-rating .empty-star {
+      color: #d1d5db;
+    }
+
+    .review-title {
+      font-weight: 600;
+      font-size: 1.05rem;
+      color: var(--text);
+      margin: 0.75rem 0 0.5rem 0;
+    }
+
+    .review-description {
+      color: var(--text);
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    .order-reference {
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    /* Pagination */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-top: 2rem;
+      padding: 1rem 0;
+    }
+
+    .page-btn {
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+    }
+
+    .page-btn:hover:not(.active):not(.disabled) {
+      background: var(--hint);
+    }
+
+    .page-btn.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    .page-btn.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    @media (max-width: 640px) {
+      .rating-summary {
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .rating-details {
+        text-align: center;
+      }
+
+      .review-header {
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard-header">
+    <div class="dashboard-header-content">
+      <div class="restaurant-info">
+        <h1>🍽️ {{ restaurant_name }}</h1>
+        <p>{{ restaurant_email }}</p>
+      </div>
+      <a href="{{ url_for('restaurant_logout') }}" class="logout-btn">Logout</a>
+    </div>
+  </div>
+
+  <div class="reviews-container">
+    <a href="{{ url_for('restaurant_dashboard') }}" class="back-link">← Back to Dashboard</a>
+
+    <!-- Restaurant Header with Rating Summary -->
+    <div class="restaurant-header">
+      <h2>Customer Reviews</h2>
+      {% if total_reviews > 0 %}
+      <div class="rating-summary">
+        <div class="average-rating">{{ "%.1f"|format(average_rating) }}</div>
+        <div class="rating-details">
+          <div class="stars-display">
+            {% set full_stars = average_rating|int %}
+            {% set has_half = (average_rating - full_stars) >= 0.5 %}
+            {% for i in range(full_stars) %}★{% endfor %}{% if has_half %}⯨{% endif %}{% for i in range(5 - full_stars - (1 if has_half else 0)) %}<span class="empty-star">★</span>{% endfor %}
+          </div>
+          <div class="review-count">
+            Based on {{ total_reviews }} {{ 'review' if total_reviews == 1 else 'reviews' }}
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="review-count">No reviews yet</div>
+      {% endif %}
+    </div>
+
+    {% if reviews %}
+    <!-- Filters and Sort Controls -->
+    <div class="controls">
+      <div class="filter-group">
+        <span class="filter-label">Sort by:</span>
+        <select class="filter-select" id="sortSelect" onchange="updateSort()">
+          <option value="recent" {% if sort == 'recent' %}selected{% endif %}>Most Recent</option>
+          <option value="highest" {% if sort == 'highest' %}selected{% endif %}>Highest Rated</option>
+          <option value="lowest" {% if sort == 'lowest' %}selected{% endif %}>Lowest Rated</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <span class="filter-label">Filter:</span>
+        <select class="filter-select" id="filterSelect" onchange="updateFilter()">
+          <option value="all" {% if filter == 'all' %}selected{% endif %}>All Ratings</option>
+          <option value="5" {% if filter == '5' %}selected{% endif %}>⭐⭐⭐⭐⭐ (5 stars)</option>
+          <option value="4" {% if filter == '4' %}selected{% endif %}>⭐⭐⭐⭐ (4 stars)</option>
+          <option value="3" {% if filter == '3' %}selected{% endif %}>⭐⭐⭐ (3 stars)</option>
+          <option value="2" {% if filter == '2' %}selected{% endif %}>⭐⭐ (2 stars)</option>
+          <option value="1" {% if filter == '1' %}selected{% endif %}>⭐ (1 star)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Review Cards -->
+    {% for review in reviews %}
+    <div class="review-card">
+      <div class="review-header">
+        <div class="reviewer-info">
+          <div class="reviewer-avatar">{{ review.user_initial }}</div>
+          <div class="reviewer-details">
+            <h4>{{ review.user_name }}</h4>
+            <div class="review-date">{{ review.date }}</div>
+          </div>
+        </div>
+        <div class="review-rating">
+          {% for i in range(review.rating) %}★{% endfor %}{% for i in range(5 - review.rating) %}<span class="empty-star">★</span>{% endfor %}
+        </div>
+      </div>
+
+      {% if review.title %}
+      <h3 class="review-title">{{ review.title }}</h3>
+      {% endif %}
+
+      {% if review.description %}
+      <p class="review-description">{{ review.description }}</p>
+      {% endif %}
+
+      <div class="order-reference">
+        Order #{{ review.ord_id }}
+      </div>
+    </div>
+    {% endfor %}
+
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <div class="pagination">
+      {% if page > 1 %}
+      <a href="?page={{ page - 1 }}&sort={{ sort }}&filter={{ filter }}" class="page-btn">← Previous</a>
+      {% else %}
+      <span class="page-btn disabled">← Previous</span>
+      {% endif %}
+
+      {% for p in range(1, total_pages + 1) %}
+        {% if p == page %}
+        <span class="page-btn active">{{ p }}</span>
+        {% elif p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+        <a href="?page={{ p }}&sort={{ sort }}&filter={{ filter }}" class="page-btn">{{ p }}</a>
+        {% elif p == page - 3 or p == page + 3 %}
+        <span class="page-btn disabled">...</span>
+        {% endif %}
+      {% endfor %}
+
+      {% if page < total_pages %}
+      <a href="?page={{ page + 1 }}&sort={{ sort }}&filter={{ filter }}" class="page-btn">Next →</a>
+      {% else %}
+      <span class="page-btn disabled">Next →</span>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- No Reviews State -->
+    <div class="no-reviews">
+      <h3>No Reviews Yet</h3>
+      <p>Your customers haven't left any reviews yet.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <footer class="footer">
+    <div class="container">© 2025 Weeklies · Restaurant Portal</div>
+  </footer>
+
+  <script>
+    function updateSort() {
+      const sort = document.getElementById('sortSelect').value;
+      const filter = document.getElementById('filterSelect').value;
+      window.location.href = `?sort=${sort}&filter=${filter}&page=1`;
+    }
+
+    function updateFilter() {
+      const sort = document.getElementById('sortSelect').value;
+      const filter = document.getElementById('filterSelect').value;
+      window.location.href = `?sort=${sort}&filter=${filter}&page=1`;
+    }
+  </script>
+</body>
+</html>

@@ -1,4 +1,3 @@
-import sqlite3
 
 from proj2.sqlQueries import create_connection, close_connection, execute_query, fetch_one
 

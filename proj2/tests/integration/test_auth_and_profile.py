@@ -1,6 +1,3 @@
-import re
-from werkzeug.security import check_password_hash
-from proj2.sqlQueries import create_connection, close_connection, fetch_one
 
 
 def test_register_login_profile_flow(client):
