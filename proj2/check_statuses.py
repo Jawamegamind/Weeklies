@@ -1,6 +1,7 @@
 import sqlite3
 
-def main():
+def check_order_statuses():
+    """Check and print all unique order statuses in the database."""
     conn = sqlite3.connect('CSC510_DB.db')
     cursor = conn.cursor()
 
@@ -17,4 +18,4 @@ def main():
     conn.close()
 
 if __name__ == "__main__":
-    main()
+    check_order_statuses()

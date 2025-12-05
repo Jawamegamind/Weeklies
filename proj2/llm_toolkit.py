@@ -37,7 +37,12 @@ class LLM:
         device = "cpu"
 
     ## Set for testing - use "ibm-granite/granite-4.0-micro" or one of your choice during actual execution
-    model = "ibm-granite/granite-4.0-h-350M"
+    
+    # Old
+    #model = "ibm-granite/granite-4.0-h-350M"
+    
+    #New
+    model = "ibm-granite/granite-4.0-micro"
 
     def __init__(self, tokens: int = 500):
         """

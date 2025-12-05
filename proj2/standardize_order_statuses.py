@@ -12,8 +12,6 @@ The order workflow is:
 
 import sqlite3
 
-conn = sqlite3.connect('CSC510_DB.db')
-cursor = conn.cursor()
 
 # Updated mapping of all variations to standard workflow statuses
 status_mappings = {
@@ -36,45 +34,55 @@ status_mappings = {
     'Accepted': 'Accepted',
 }
 
-print("Standardizing order statuses to workflow states...\n")
 
-# Show before
-cursor.execute('SELECT DISTINCT status FROM "Order" ORDER BY status')
-print("Before:")
-statuses_before = {}
-for status in cursor.fetchall():
-    cursor.execute('SELECT COUNT(*) FROM "Order" WHERE status = ?', (status[0],))
-    count = cursor.fetchone()[0]
-    statuses_before[status[0]] = count
-    print(f"  '{status[0]}': {count}")
+def standardize_statuses():
+    """Standardize order statuses in database to workflow states."""
+    conn = sqlite3.connect('CSC510_DB.db')
+    cursor = conn.cursor()
 
-# Apply mappings
-changed_count = 0
-for old_status, new_status in status_mappings.items():
-    if old_status != new_status:
-        cursor.execute(
-            'UPDATE "Order" SET status = ? WHERE status = ?',
-            (new_status, old_status)
-        )
-        rows_changed = cursor.rowcount
-        if rows_changed > 0:
-            print(f"\n✅ Updated {rows_changed} orders: '{old_status}' → '{new_status}'")
-            changed_count += rows_changed
+    print("Standardizing order statuses to workflow states...\n")
 
-conn.commit()
+    # Show before
+    cursor.execute('SELECT DISTINCT status FROM "Order" ORDER BY status')
+    print("Before:")
+    statuses_before = {}
+    for status in cursor.fetchall():
+        cursor.execute('SELECT COUNT(*) FROM "Order" WHERE status = ?', (status[0],))
+        count = cursor.fetchone()[0]
+        statuses_before[status[0]] = count
+        print(f"  '{status[0]}': {count}")
 
-# Show after
-print("\nAfter:")
-cursor.execute('SELECT DISTINCT status FROM "Order" ORDER BY status')
-for status in cursor.fetchall():
-    cursor.execute('SELECT COUNT(*) FROM "Order" WHERE status = ?', (status[0],))
-    count = cursor.fetchone()[0]
-    print(f"  '{status[0]}': {count}")
+    # Apply mappings
+    changed_count = 0
+    for old_status, new_status in status_mappings.items():
+        if old_status != new_status:
+            cursor.execute(
+                'UPDATE "Order" SET status = ? WHERE status = ?',
+                (new_status, old_status)
+            )
+            rows_changed = cursor.rowcount
+            if rows_changed > 0:
+                print(f"\n✅ Updated {rows_changed} orders: '{old_status}' → '{new_status}'")
+                changed_count += rows_changed
 
-print(f"\n✅ Total orders updated: {changed_count}")
-print("\nOrder Status Workflow:")
-print("  Ordered → Accepted → Preparing → Ready → Delivered")
-print("  (Cancelled can occur at any stage)")
+    conn.commit()
 
-conn.close()
-print("\n✅ Database standardized successfully!")
+    # Show after
+    print("\nAfter:")
+    cursor.execute('SELECT DISTINCT status FROM "Order" ORDER BY status')
+    for status in cursor.fetchall():
+        cursor.execute('SELECT COUNT(*) FROM "Order" WHERE status = ?', (status[0],))
+        count = cursor.fetchone()[0]
+        print(f"  '{status[0]}': {count}")
+
+    print(f"\n✅ Total orders updated: {changed_count}")
+    print("\nOrder Status Workflow:")
+    print("  Ordered → Accepted → Preparing → Ready → Delivered")
+    print("  (Cancelled can occur at any stage)")
+
+    conn.close()
+    print("\n✅ Database standardized successfully!")
+
+
+if __name__ == "__main__":
+    standardize_statuses()

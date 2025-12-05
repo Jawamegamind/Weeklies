@@ -20,4 +20,73 @@ document.addEventListener('DOMContentLoaded', () => {
     const ms = parseInt(el.getAttribute('data-autohide'), 10) || 3500;
     setTimeout(() => { el.style.display = 'none'; }, ms);
   });
+
+  // Menu generation loading spinner with AJAX
+  (function setupMenuLoading() {
+    const form = document.querySelector('form[action*="menu/generate"]');
+    const generateBtn = document.getElementById('generateMenuBtn');
+    const loadingDiv = document.getElementById('menuLoading');
+
+    if (!form || !generateBtn || !loadingDiv) {
+      console.warn('Menu loading elements not found');
+      return;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      console.log('Menu generation form submitted');
+      
+      // Collect form data
+      const formData = new FormData(form);
+      
+      // Show spinner - make absolutely visible
+      loadingDiv.style.display = 'block';
+      loadingDiv.style.visibility = 'visible';
+      loadingDiv.style.opacity = '1';
+      generateBtn.disabled = true;
+      console.log('Loading spinner shown');
+      
+      // Scroll to spinner
+      loadingDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      
+      try {
+        // Send AJAX request
+        console.log('Sending menu generation request to:', form.action);
+        const response = await fetch(form.action, {
+          method: 'POST',
+          body: formData
+        });
+        
+        console.log('Response received:', response.status);
+        
+        if (response.ok) {
+          console.log('Generation successful, redirecting...');
+          // Small delay to ensure spinner is visible before redirect
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 100);
+        } else {
+          console.error('Generation failed with status:', response.status);
+          // Show error and hide spinner
+          alert('Menu generation failed. Please try again.');
+          loadingDiv.style.display = 'none';
+          generateBtn.disabled = false;
+        }
+      } catch (error) {
+        console.error('Error generating menu:', error);
+        alert('Menu generation failed. Please try again.');
+        loadingDiv.style.display = 'none';
+        generateBtn.disabled = false;
+      }
+    });
+  })();
 });
+
+// Add spin animation
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+`;
+document.head.appendChild(style);
