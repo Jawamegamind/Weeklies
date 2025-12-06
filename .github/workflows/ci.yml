@@ -20,6 +20,27 @@ jobs:
         working-directory: proj2  # run everything from proj2/
 
     steps:
+      - name: Maximize disk space (cleanup runner cache)
+        run: |
+          echo "Disk usage before cleanup:"
+          df -h /
+          
+          # Remove Docker images and containers
+          docker rmi $(docker images -q) 2>/dev/null || true
+          docker system prune -af --volumes 2>/dev/null || true
+          
+          # Remove unnecessary packages
+          sudo apt-get remove -y -qq dotnet-* ghc-* google-* llvm-* mono-* mysql-* php-* powershell-* 2>/dev/null || true
+          sudo apt-get autoremove -qq 2>/dev/null || true
+          sudo apt-get clean -qq 2>/dev/null || true
+          
+          # Remove large directories
+          sudo rm -rf /usr/local/graalvm-* /opt/hostedtoolcache 2>/dev/null || true
+          sudo rm -rf /usr/share/dotnet /usr/share/swift 2>/dev/null || true
+          
+          echo "Disk usage after cleanup:"
+          df -h /
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -40,14 +61,26 @@ jobs:
         run: |
           set -e
           pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install pytest 
+          if [ -f requirements.txt ]; then pip install -r requirements.txt --no-cache-dir; fi
+          pip install pytest --no-cache-dir 
         
       - name: Run tests with coverage
         run: |
           set -e
           # LLM tests will be automatically skipped by pytestmark due to GITHUB_ACTIONS=true
           pytest
+
+      - name: Cleanup after tests
+        if: always()
+        run: |
+          # Aggressively clean cache
+          rm -rf ~/.cache/pip
+          rm -rf proj2/.hf_cache
+          rm -rf proj2/.pytest_cache
+          rm -rf ~/.cache
+          rm -rf /tmp/*
+          echo "Disk after test cleanup:"
+          df -h /
 
       - name: Check code formatting (Black)
         run: |
@@ -63,24 +96,14 @@ jobs:
       - name: Set PYTHONPATH
         run: echo "PYTHONPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
 
-      - name: Clean up disk space before coverage upload
+      - name: Final disk cleanup before badge computation
+        if: always()
         run: |
-          set -e
-          # Remove pytest logs and cache to free space before uploading
-          rm -f ${{ github.workspace }}/pytest_attempt_*.log
-          rm -rf proj2/.hf_cache
-          rm -rf proj2/.pytest_cache
-          rm -rf ~/.cache/pip
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}   # rotate & set in repo secrets
-          files: proj2/coverage.xml
-          flags: proj2
-          name: proj2-coverage
-          fail_ci_if_error: true
-          verbose: true
+          # One more aggressive cleanup
+          sudo rm -rf /tmp/* /var/tmp/* 2>/dev/null || true
+          rm -rf ~/.cache/* proj2/.pytest_cache proj2/.hf_cache
+          echo "Final disk status:"
+          df -h /
 
       - name: Compute tests badge JSON
         id: badge
@@ -141,10 +164,3 @@ jobs:
               gist_id: gistId,
               files: { [file]: { content } }
               });
-
-      - name: Cache cleanup
-        if: always()
-        run: |
-          # Remove cache to prevent disk space issues
-          rm -rf ~/.cache/pip
-          rm -rf proj2/.hf_cache
