@@ -54,6 +54,10 @@ The project demonstrates **modular backend design**, **frontend interaction**, *
 - 🤖 **LLM integration** for context-aware meal suggestions
 - 🧪 **Automated test suite** with `pytest`
 - 🧰 **CI/CD workflows** for tests, linting, and documentation deployment
+- 🔄 **End-to-end order workflow** from cart → checkout → payment → fulfillment (New feature)
+- ⭐ **Restaurant reviews & ratings** with user-generated feedback (New feature)
+- 📊 **Restaurant analytics dashboard** for orders, customer behavior, and performance insights (New feature)
+- 🥗 **Dynamic meal generation** based on user preferences, allergens, and dietary constraints (New feature)
 
 ---
 
