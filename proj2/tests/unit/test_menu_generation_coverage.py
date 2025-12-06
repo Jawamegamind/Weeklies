@@ -1,5 +1,6 @@
 """Tests for menu_generation.py helper functions and edge cases."""
 import pytest
+import os
 import pandas as pd
 from proj2.menu_generation import (
     get_meal_and_order_time,
@@ -168,6 +169,10 @@ class TestFilterClosedRestaurants:
 class TestMenuGeneratorInit:
     """Tests for MenuGenerator initialization."""
 
+    @pytest.mark.skipif(
+        os.environ.get("CI") == "true" or os.environ.get("GITHUB_ACTIONS") == "true",
+        reason="MenuGenerator requires database and model access, skip in CI"
+    )
     def test_menu_generator_creates(self):
         """Test MenuGenerator can be initialized."""
         gen = MenuGenerator(tokens=50)
@@ -176,6 +181,10 @@ class TestMenuGeneratorInit:
         assert hasattr(gen, "restaurants")
         assert hasattr(gen, "generator")
 
+    @pytest.mark.skipif(
+        os.environ.get("CI") == "true" or os.environ.get("GITHUB_ACTIONS") == "true",
+        reason="MenuGenerator requires database and model access, skip in CI"
+    )
     def test_menu_generator_tokens(self):
         """Test MenuGenerator stores token count."""
         gen = MenuGenerator(tokens=100)
