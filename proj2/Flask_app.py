@@ -209,6 +209,20 @@ def record_analytics_snapshot(rtr_id):
         close_connection(conn)
 
 
+def update_analytics_safe(rtr_id):
+    """
+    Safe wrapper to update analytics snapshot without blocking request.
+    Silently fails if unable to update (doesn't disrupt order/status flow).
+    
+    Args:
+        rtr_id (int): The restaurant ID to update analytics for.
+    """
+    try:
+        record_analytics_snapshot(rtr_id)
+    except Exception:
+        pass  # Silently fail - don't interrupt main request
+
+
 def palette_for_item_ids(item_ids):
     """
     Generate a deterministic, pleasant color palette for item IDs.
@@ -1004,6 +1018,9 @@ def restaurant_accept_order(ord_id):
     finally:
         close_connection(conn)
 
+    # Update analytics for this restaurant
+    update_analytics_safe(rtr_id)
+
     # Return JSON for AJAX or redirect for full page
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return jsonify({"ok": True, "new_status": "Accepted"})
@@ -1038,6 +1055,9 @@ def restaurant_reject_order(ord_id):
     finally:
         close_connection(conn)
 
+    # Update analytics for this restaurant
+    update_analytics_safe(rtr_id)
+
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return jsonify({"ok": True, "new_status": "Cancelled"})
     else:
@@ -1070,6 +1090,9 @@ def restaurant_prepare_order(ord_id):
         execute_query(conn, 'UPDATE "Order" SET status = ? WHERE ord_id = ?', ("Preparing", ord_id))
     finally:
         close_connection(conn)
+
+    # Update analytics for this restaurant
+    update_analytics_safe(rtr_id)
 
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return jsonify({"ok": True, "new_status": "Preparing"})
@@ -1104,6 +1127,9 @@ def restaurant_ready_order(ord_id):
     finally:
         close_connection(conn)
 
+    # Update analytics for this restaurant
+    update_analytics_safe(rtr_id)
+
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return jsonify({"ok": True, "new_status": "Ready"})
     else:
@@ -1136,6 +1162,9 @@ def restaurant_deliver_order(ord_id):
         execute_query(conn, 'UPDATE "Order" SET status = ? WHERE ord_id = ?', ("Delivered", ord_id))
     finally:
         close_connection(conn)
+
+    # Update analytics for this restaurant
+    update_analytics_safe(rtr_id)
 
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return jsonify({"ok": True, "new_status": "Delivered"})
@@ -1920,6 +1949,9 @@ def order():
             new_ord_id = row[0] if row else None
         finally:
             close_connection(conn)
+
+        # Update analytics for this restaurant
+        update_analytics_safe(rtr_id)
 
         return jsonify({"ok": True, "ord_id": new_ord_id})
 
