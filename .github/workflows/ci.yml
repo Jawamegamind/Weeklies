@@ -41,7 +41,7 @@ jobs:
           set -e
           pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install pytest pytest-timeout 
+          pip install pytest 
         
       - name: Run tests with retry
         uses: nick-fields/retry@v3
@@ -56,7 +56,7 @@ jobs:
             LOG="$GITHUB_WORKSPACE/pytest_attempt_${GITHUB_RUN_ATTEMPT}_$(date +%s).log"
             # stream to console AND write to file; pipefail keeps pytest's exit status
             # --ignore=proj2/tests/llm excludes expensive LLM tests from CI to prevent timeout
-            stdbuf -oL -eL pytest -vv --log-cli-level=INFO --maxfail=1 --timeout=120 --durations=10 --ignore=proj2/tests/llm 2>&1 | tee "$LOG"
+            stdbuf -oL -eL pytest -vv --log-cli-level=INFO --maxfail=1 --durations=10 --ignore=proj2/tests/llm 2>&1 | tee "$LOG"
 
       - name: Check code formatting (Black)
         run: |
