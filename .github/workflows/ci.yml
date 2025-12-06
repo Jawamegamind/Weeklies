@@ -15,9 +15,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    defaults:
-      run:
-        working-directory: proj2  # run everything from proj2/
 
     steps:
       - name: Maximize disk space (cleanup runner cache)
@@ -58,6 +55,7 @@ jobs:
             ${{ runner.os }}-pip-
 
       - name: Install dependencies
+        working-directory: proj2
         run: |
           set -e
           pip install --upgrade pip
@@ -65,6 +63,7 @@ jobs:
           pip install pytest --no-cache-dir 
         
       - name: Run tests with coverage
+        working-directory: proj2
         run: |
           set -e
           # LLM tests will be automatically skipped by pytestmark due to GITHUB_ACTIONS=true
@@ -72,6 +71,7 @@ jobs:
 
       - name: Cleanup after tests
         if: always()
+        working-directory: proj2
         run: |
           # Aggressively clean cache
           rm -rf ~/.cache/pip
@@ -83,12 +83,14 @@ jobs:
           df -h /
 
       - name: Check code formatting (Black)
+        working-directory: proj2
         run: |
           set -e
           black .
           black --check .
 
       - name: Lint code (Ruff)
+        working-directory: proj2
         run: |
           set -e
           ruff check . --fix || true
@@ -108,6 +110,7 @@ jobs:
       - name: Compute tests badge JSON
         id: badge
         if: always()  # update even on failures so the badge can go red
+        working-directory: proj2
         run: |
           # Parse test results from coverage report header (less disk intensive)
           if [ -f proj2/coverage.xml ]; then
