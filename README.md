@@ -25,9 +25,10 @@ The project demonstrates **modular backend design**, **frontend interaction**, *
 
 ---
 
-## 🎬 Live Demo
-👉 [Click here to watch the demo video on YouTube](https://youtu.be/CKCTOMVMst8)
-
+## 🎬 Videos
+👉 [Click here to watch the demo video for Project 2 on YouTube](https://youtu.be/CKCTOMVMst8)
+👉 [Click here to watch the highlight reel for Project 3 on YouTube](https://youtu.be/CKCTOMVMst8)
+👉 [Click here to watch the walkthrough for Project 3 on YouTube](https://youtu.be/CKCTOMVMst8)
 ---
 
 ## ⚙️ Tech Stack
