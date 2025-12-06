@@ -124,6 +124,9 @@ Project developed collaboratively as part of **CSC 510 — Software Engineering 
 | **Kunal Jindal** | [@devkunal2002](https://github.com/devkunal2002) | Designed and automated documentation pipeline using `pdoc`. Authored Installation Guide and main README. Set up CI/CD workflows, repository structure, and code quality badging. Contributed to backend testing and verification. |
 | **Ashritha Bugada** | — | Developed restaurant search, menu browsing, and ordering flow. Designed dynamic menu templates and integrated frontend-backend routes for order placement. Assisted with usability testing and validation. |
 | **Daniel Dong** | — | Implemented backend for calendar scheduling and integrated LLM module for personalized recommendations. Supported expansion of core Flask app and contributed to end-to-end feature debugging. |
+| **Jawad Saeed** | [@Jawamegamind](https://github.com/Jawamegamind) | Implemented Reviews & Ratings feature to allow users to deliver verdict on their orders and for restaurants to see their average ratings. Implemented restaurant dashboard with end-to-end order functionality where restaurants can accept/reject orders. Helped with the creation of unit and end-to-end workflow tests for implemented features and added support for Metal Performance Shaders for faster LLM inference on Apple Silicon devices. |
+| **Omkar Joshi** | — | |
+| **Mason Cormany** | — | |
 
 ---
 
