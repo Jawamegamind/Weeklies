@@ -1,9 +1,17 @@
 import pandas as pd
 import os
+import pytest
 from io import StringIO
 
 import proj2.menu_generation as menu_generation
 from proj2.sqlQueries import *
+
+# Skip all LLM tests on CI (GitHub Actions on Linux)
+# These require model loading and disk space
+pytestmark = pytest.mark.skipif(
+    os.environ.get("CI") == "true" or os.environ.get("GITHUB_ACTIONS") == "true",
+    reason="LLM tests require model loading and are skipped on CI to prevent disk exhaustion"
+)
 
 db_file = os.path.join(os.path.dirname(__file__), "../../CSC510_DB.db")
 

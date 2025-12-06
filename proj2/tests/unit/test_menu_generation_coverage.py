@@ -179,6 +179,7 @@ class TestMenuGeneratorInit:
     def test_menu_generator_tokens(self):
         """Test MenuGenerator stores token count."""
         gen = MenuGenerator(tokens=100)
+        # The generator is an LLM instance which stores tokens
         assert gen.generator.tokens == 100
 
 

@@ -46,7 +46,8 @@ jobs:
       - name: Run tests with coverage
         run: |
           set -e
-          pytest --ignore=proj2/tests/llm
+          # LLM tests will be automatically skipped by pytestmark due to GITHUB_ACTIONS=true
+          pytest
 
       - name: Check code formatting (Black)
         run: |

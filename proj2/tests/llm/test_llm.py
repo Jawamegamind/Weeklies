@@ -1,13 +1,30 @@
 import re
+import os
+import pytest
 
 import proj2.llm_toolkit as llm_toolkit
 import proj2.menu_generation as menu_generation
 
-test_generator = llm_toolkit.LLM(tokens=100)
+# Skip entire module if running in CI (no space for large models)
+# This prevents model initialization during collection
+pytestmark = pytest.mark.skipif(
+    os.environ.get('CI') == 'true' or os.environ.get('GITHUB_ACTIONS') == 'true',
+    reason="LLM tests skipped in CI to prevent disk space exhaustion"
+)
 
+# Global test generator - only initialized when tests actually run
+test_generator = None
+
+def get_test_generator():
+    """Lazy initialization of test generator."""
+    global test_generator
+    if test_generator is None:
+        test_generator = llm_toolkit.LLM(tokens=100)
+    return test_generator
 
 def test_llm():
-    output = test_generator.generate("This is a test", "test")
+    generator = get_test_generator()
+    output = generator.generate("This is a test", "test")
     match = r"<\|start_of_role\|>assistant<\|end_of_role\|>(.*)<\|end_of_text\|>"
     assert (
         re.search(match, output).group(1) is not None
@@ -20,6 +37,7 @@ def test_llm():
 
 
 def test_prompt():
+    generator = get_test_generator()
     prompt = menu_generation.PROMPT_TEMPLATE
     prompt = prompt.replace("{preferences}", "high protein, low carb")
     prompt = prompt.replace(
@@ -37,7 +55,7 @@ def test_prompt():
 195,Seasonal Fruit Tart,Pastry tart filled with seasonal fruit and pastry cream.,1200,400""",
     )
     prompt = prompt.replace("{meal}", "dinner")
-    output = test_generator.generate(menu_generation.SYSTEM_TEMPLATE, prompt)
+    output = generator.generate(menu_generation.SYSTEM_TEMPLATE, prompt)
     match = r"<\|start_of_role\|>assistant<\|end_of_role\|>(\d+)<\|end_of_text\|>"
     assert (
         int(re.search(match, output).group(1)) is not None

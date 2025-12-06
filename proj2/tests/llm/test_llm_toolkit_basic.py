@@ -10,6 +10,13 @@ from unittest.mock import Mock, patch, MagicMock
 
 from proj2.llm_toolkit import LLM
 
+# Skip all LLM tests on CI (GitHub Actions on Linux)
+# These require GPU/model resources and significant disk space
+pytestmark = pytest.mark.skipif(
+    os.environ.get("CI") == "true" or os.environ.get("GITHUB_ACTIONS") == "true",
+    reason="LLM tests require model loading and are skipped on CI to prevent disk exhaustion"
+)
+
 
 class TestLLMDeviceSelection:
     """Tests for LLM device selection logic"""
