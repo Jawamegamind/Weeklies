@@ -33,6 +33,12 @@
             <h2>API Documentation</h2>
                 <ul class="memberlist">
             <li>
+                    <a class="class" href="#LLMUnavailableError">LLMUnavailableError</a>
+                            <ul class="memberlist">
+                </ul>
+
+            </li>
+            <li>
                     <a class="class" href="#LLM">LLM</a>
                             <ul class="memberlist">
                         <li>
@@ -42,10 +48,13 @@
                                 <a class="variable" href="#LLM.model">model</a>
                         </li>
                         <li>
+                                <a class="variable" href="#LLM.tokens">tokens</a>
+                        </li>
+                        <li>
                                 <a class="variable" href="#LLM.tokenizer">tokenizer</a>
                         </li>
                         <li>
-                                <a class="variable" href="#LLM.tokens">tokens</a>
+                                <a class="variable" href="#LLM.model_instance">model_instance</a>
                         </li>
                         <li>
                                 <a class="function" href="#LLM.generate">generate</a>
@@ -77,6 +86,36 @@
                 
                 
             </section>
+                <section id="LLMUnavailableError">
+                    <div class="attr class">
+            
+    <span class="def">class</span>
+    <span class="name">LLMUnavailableError</span><wbr>(<span class="base">builtins.Exception</span>):
+
+        
+    </div>
+    <a class="headerlink" href="#LLMUnavailableError"></a>
+    
+            <div class="docstring"><p>Raised when LLM is unavailable and fallback must be used</p>
+</div>
+
+
+                            <div class="inherited">
+                                <h5>Inherited Members</h5>
+                                <dl>
+                                    <div><dt>builtins.Exception</dt>
+                                <dd id="LLMUnavailableError.__init__" class="function">Exception</dd>
+
+            </div>
+            <div><dt>builtins.BaseException</dt>
+                                <dd id="LLMUnavailableError.with_traceback" class="function">with_traceback</dd>
+                <dd id="LLMUnavailableError.add_note" class="function">add_note</dd>
+                <dd id="LLMUnavailableError.args" class="variable">args</dd>
+
+            </div>
+                                </dl>
+                            </div>
+                </section>
                 <section id="LLM">
                     <div class="attr class">
             
@@ -87,7 +126,8 @@
     </div>
     <a class="headerlink" href="#LLM"></a>
     
-            <div class="docstring"><p>LLM class for local language model interactions</p>
+            <div class="docstring"><p>LLM class for local language model interactions
+with Windows compatibility and GPU support</p>
 </div>
 
 
@@ -100,7 +140,8 @@
     </div>
     <a class="headerlink" href="#LLM.__init__"></a>
     
-            <div class="docstring"><p>Initializes the LLM with the specified number of tokens</p>
+            <div class="docstring"><p>Initializes the LLM with the specified number of tokens
+Uses GPU if available, otherwise falls back to CPU or mock</p>
 
 <p>Args:
     tokens (int): The max number of generated characters</p>
@@ -120,6 +161,17 @@
     
 
                             </div>
+                            <div id="LLM.tokens" class="classattr">
+                                <div class="attr variable">
+            <span class="name">tokens</span>
+
+        
+    </div>
+    <a class="headerlink" href="#LLM.tokens"></a>
+    
+    
+
+                            </div>
                             <div id="LLM.tokenizer" class="classattr">
                                 <div class="attr variable">
             <span class="name">tokenizer</span>
@@ -131,13 +183,13 @@
     
 
                             </div>
-                            <div id="LLM.tokens" class="classattr">
+                            <div id="LLM.model_instance" class="classattr">
                                 <div class="attr variable">
-            <span class="name">tokens</span>
+            <span class="name">model_instance</span>
 
         
     </div>
-    <a class="headerlink" href="#LLM.tokens"></a>
+    <a class="headerlink" href="#LLM.model_instance"></a>
     
     
 
@@ -152,14 +204,15 @@
     </div>
     <a class="headerlink" href="#LLM.generate"></a>
     
-            <div class="docstring"><p>Uses the local LLM to generate text based on the provided context and prompt</p>
+            <div class="docstring"><p>Uses the local LLM to generate text based on the provided context and prompt
+Falls back to deterministic selection if model is unavailable</p>
 
 <p>Args:
     context (str): The system context to provide to the LLM
     prompt (str): The user prompt to provide to the LLM</p>
 
 <p>Returns:
-    str: The raw, unformatted output from the LLM</p>
+    str: The raw, unformatted output from the LLM or fallback</p>
 </div>
 
 

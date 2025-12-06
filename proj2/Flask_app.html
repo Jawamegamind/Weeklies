@@ -45,6 +45,9 @@
                     <a class="function" href="#record_analytics_snapshot">record_analytics_snapshot</a>
             </li>
             <li>
+                    <a class="function" href="#update_analytics_safe">update_analytics_safe</a>
+            </li>
+            <li>
                     <a class="function" href="#palette_for_item_ids">palette_for_item_ids</a>
             </li>
             <li>
@@ -230,6 +233,25 @@ Returns:
 
 <p>Returns:
     bool: True if snapshot was recorded successfully, False otherwise.</p>
+</div>
+
+
+                </section>
+                <section id="update_analytics_safe">
+                    <div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">update_analytics_safe</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">rtr_id</span></span><span class="return-annotation">):</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#update_analytics_safe"></a>
+    
+            <div class="docstring"><p>Safe wrapper to update analytics snapshot without blocking request.
+Silently fails if unable to update (doesn't disrupt order/status flow).</p>
+
+<p>Args:
+    rtr_id (int): The restaurant ID to update analytics for.</p>
 </div>
 
 
