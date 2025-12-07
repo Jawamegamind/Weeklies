@@ -179,7 +179,7 @@ Project developed collaboratively as part of **CSC 510 — Software Engineering 
 | **Daniel Dong** | — | Implemented backend for calendar scheduling and integrated LLM module for personalized recommendations. Supported expansion of core Flask app and contributed to end-to-end feature debugging. |
 | **Jawad Saeed** | [@Jawamegamind](https://github.com/Jawamegamind) | Implemented Reviews & Ratings feature to allow users to deliver verdict on their orders and for restaurants to see their average ratings. Implemented restaurant dashboard with end-to-end order functionality where restaurants can accept/reject orders. Helped with the creation of unit and end-to-end workflow tests for implemented features and added support for Metal Performance Shaders for faster LLM inference on Apple Silicon devices. |
 | **Omkar Joshi** | [@OJ98](https://github.com/OJ98) | Implemented the Analytics Dashboard feature providing restaurant owners detailed insights into order patterns, revenue metrics, and customer behavior. Enhanced LLM toolkit with GPU acceleration support (CUDA/MPS/CPU priority). Optimized CI/CD pipeline to prevent disk exhaustion on GitHub Actions runners. Added comprehensive test coverage improvements and resolved pytest configuration issues for cross-platform compatibility. |
-| **Mason Cormany** | — | |
+| **Mason Cormany** | [@kaotickoopa](https://github.com/kaotickoopa) | Finalized the AI menu generation feature to dynamically generate meals from a finite selection of food items from all restaurants in the local database. This included picking the optimal model and prompting strategy for the highest quality items. Crafted tests for this feature as well. |
 
 ---
 
