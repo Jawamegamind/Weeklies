@@ -14,7 +14,7 @@
 [![Contributors](https://img.shields.io/github/contributors/Jawamegamind/Weeklies.svg)](https://github.com/Jawamegamind/Weeklies/graphs/contributors)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Lint: ruff](https://img.shields.io/badge/lint-ruff-46a2f1?logo=ruff&logoColor=white)](https://github.com/astral-sh/ruff)
-[![DOI](https://zenodo.org/badge/1042386944.svg)](https://doi.org/10.5281/zenodo.17547176)
+[![DOI](https://zenodo.org/badge/1094607724.svg)](https://doi.org/10.5281/zenodo.17844813)
 ---
 
 ## 🧠 Project Overview
