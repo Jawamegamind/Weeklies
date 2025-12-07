@@ -3,7 +3,7 @@
 [![CI](https://github.com/Jawamegamind/Weeklies/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Jawamegamind/Weeklies/actions/workflows/ci.yml)
 [![Docs](https://github.com/Jawamegamind/Weeklies/actions/workflows/docs.yml/badge.svg?branch=main&event=push)](https://github.com/Jawamegamind/Weeklies/actions/workflows/docs.yml)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)]()
-![Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Jawamegamind/0ab63df1c29ad707ee2f0c5bdbf46383/raw/tests-badge.json)
+![Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Jawamegamind/0ab63df1c29ad707ee2f0c5bdbf46383/raw/tests-badge.json&cacheSeconds=0)
 [![codecov](https://codecov.io/gh/Jawamegamind/Weeklies/branch/main/graph/badge.svg)](https://codecov.io/gh/Jawamegamind/Weeklies)
 [![Flask](https://img.shields.io/badge/Flask-2.x-lightgrey?logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
 [![License](https://img.shields.io/github/license/Jawamegamind/Weeklies.svg)](LICENSE)
@@ -26,9 +26,21 @@ The project demonstrates **modular backend design**, **frontend interaction**, *
 ---
 
 ## 🎬 Videos
-👉 [Click here to watch the demo video for Project 2 on YouTube](https://youtu.be/CKCTOMVMst8)  
-👉 [Click here to watch the highlight reel for Project 3 on YouTube](https://youtu.be/OmL4MTHdknU)  
-👉 [Click here to watch the walkthrough for Project 3 on YouTube](https://youtu.be/rJhbeKgY8BU)
+
+### Watch Our Project in Action
+
+#### 📺 Project 2 Demo
+Full system walkthrough and feature showcase  
+[▶️ Watch on YouTube](https://youtu.be/CKCTOMVMst8) | Core features, user flows, authentication
+
+#### 🎥 Project 3 Highlights  
+Quick tour of new features  
+[▶️ Watch on YouTube](https://youtu.be/OmL4MTHdknU) | Reviews, analytics, restaurant dashboard
+
+#### 🎓 Project 3 Technical Walkthrough
+In-depth implementation details  
+[▶️ Watch on YouTube](https://youtu.be/rJhbeKgY8BU) | Architecture, LLM integration, testing
+
 ---
 
 ## ⚙️ Tech Stack
@@ -63,31 +75,68 @@ The project demonstrates **modular backend design**, **frontend interaction**, *
 
 ## 🧱 Architecture
 
-SE25Fall/   
-├── proj2/  
-│   ├── Flask_app.py       
-│   ├── templates/  
-│   ├── static/  
-│   ├── pdf_receipt.py  
-│   ├── sqlQueries.py   
-│   ├── tests/  
-│   ├── llm_toolkit.py      
-│   ├── menu_generation.py       
-│   ├── requirements.txt    
-│   ├── CSC510_DB.db    
-│   └── orders_db_seed.txt  
-├── .github/    
-│   └── workflows/  
-│           ├── ci.yml  
-│           └── docs.yml    
-├── INSTALLATION.md   
-├── LICENSE   
-├── CODE_OF_CONDUCT.md     
-├── README.md   
-├── scripts/       
-├── pytest.ini  
-├── pdoc.toml   
-└── coverage.xml    
+```
+Weeklies/
+│
+├── 📁 proj2/                          # Main Flask Application
+│   ├── 🐍 Flask_app.py                # Core Flask app with all routes
+│   ├── 🧠 llm_toolkit.py              # LLM wrapper (GPU-enabled, CUDA/MPS/CPU)
+│   ├── 🥗 menu_generation.py          # AI-powered meal generation
+│   ├── 📄 pdf_receipt.py              # PDF generation service
+│   ├── 💾 sqlQueries.py               # Database helper functions
+│   ├── 🗄️  CSC510_DB.db               # SQLite database
+│   │
+│   ├── 📁 templates/                  # HTML Templates
+│   │   ├── index.html
+│   │   ├── login.html
+│   │   ├── register.html
+│   │   ├── orders.html
+│   │   ├── profile.html
+│   │   ├── restaurant_dashboard.html
+│   │   ├── restaurant_analytics.html
+│   │   └── ...
+│   │
+│   ├── 📁 static/                     # Frontend Assets
+│   │   ├── style.css
+│   │   └── script.js
+│   │
+│   ├── 🧪 tests/                      # Comprehensive Test Suite
+│   │   ├── e2e/                       # End-to-end tests
+│   │   ├── integration/               # Integration tests
+│   │   ├── unit/                      # Unit tests
+│   │   ├── llm/                       # LLM-specific tests (skipped in CI)
+│   │   └── smoke/                     # Smoke tests
+│   │
+│   ├── 📋 requirements.txt            # Python dependencies
+│   └── 🌱 orders_db_seed.txt          # Database seed data
+│
+├── 🔄 .github/
+│   └── workflows/
+│       ├── ci.yml                     # Automated testing & linting
+│       └── docs.yml                   # Documentation build & deploy
+│
+├── 📁 scripts/                        # Utility Scripts
+│   ├── build_docs.py
+│   ├── migrate_add_analytics.py
+│   ├── seed_analytics_data.py
+│   └── ...
+│
+├── 🎯 Configuration Files
+│   ├── pytest.ini                     # Test configuration
+│   ├── pdoc.toml                      # Documentation config
+│   ├── pyproject.toml                 # Project metadata
+│   └── .pre-commit-check.sh           # Pre-commit hooks
+│
+├── 📖 Documentation
+│   ├── README.md                      # This file
+│   ├── INSTALLATION.md                # Setup guide
+│   ├── CODE_OF_CONDUCT.md
+│   └── LICENSE
+│
+└── 📊 Reporting
+    ├── coverage.xml                   # Code coverage report
+    └── pytest.ini                     # Test configuration
+```
 
 ---
 
@@ -129,7 +178,7 @@ Project developed collaboratively as part of **CSC 510 — Software Engineering 
 | **Ashritha Bugada** | — | Developed restaurant search, menu browsing, and ordering flow. Designed dynamic menu templates and integrated frontend-backend routes for order placement. Assisted with usability testing and validation. |
 | **Daniel Dong** | — | Implemented backend for calendar scheduling and integrated LLM module for personalized recommendations. Supported expansion of core Flask app and contributed to end-to-end feature debugging. |
 | **Jawad Saeed** | [@Jawamegamind](https://github.com/Jawamegamind) | Implemented Reviews & Ratings feature to allow users to deliver verdict on their orders and for restaurants to see their average ratings. Implemented restaurant dashboard with end-to-end order functionality where restaurants can accept/reject orders. Helped with the creation of unit and end-to-end workflow tests for implemented features and added support for Metal Performance Shaders for faster LLM inference on Apple Silicon devices. |
-| **Omkar Joshi** | — | |
+| **Omkar Joshi** | [@OJ98](https://github.com/OJ98) | Implemented the Analytics Dashboard feature providing restaurant owners detailed insights into order patterns, revenue metrics, and customer behavior. Enhanced LLM toolkit with GPU acceleration support (CUDA/MPS/CPU priority). Optimized CI/CD pipeline to prevent disk exhaustion on GitHub Actions runners. Added comprehensive test coverage improvements and resolved pytest configuration issues for cross-platform compatibility. |
 | **Mason Cormany** | — | |
 
 ---
